@@ -17,7 +17,7 @@ export interface BlockDefinition<TConfig = any> {
   version: number;
   category: 'layout' | 'content' | 'media' | 'school' | 'interaction';
   icon: string;
-  schema: z.ZodSchema<TConfig>;
+  schema: z.ZodType<TConfig, any, any>;
   defaultConfig: TConfig;
   renderer: React.ComponentType<BlockRenderProps<TConfig>>;
   migrations?: Record<number, BlockMigrationFn>;

@@ -24,6 +24,8 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 14** | Hiển thị trọn vẹn 8 Blocks trên Public Web Portal (`/`), Mở rộng 18 Tests kiểm thử tự động | Hoàn thành | `f5899d7` |
 | **Phase 15** | SEO Rich Snippets (Schema.org FAQPage & Breadcrumbs), Làm sạch Form Chống XSS & 20 Tests | Hoàn thành | `e9821e1` |
 | **Phase 16** | Bảng Điều Phối Tuyển Sinh Kanban (4 cột, KPI Conversion Rate), Webhook HMAC-SHA256 & 22 Tests | Hoàn thành | `c6eaca2` |
+| **Phase 17** | Mở rộng 10 Blocks Chuẩn (Statistics, CTA Banner), Media Asset Optimization Engine, Webhook Test Console & 26 Tests | Hoàn thành | `Đang cập nhật` |
+
 
 ---
 
@@ -143,7 +145,19 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/admin/src/app/page.tsx`: Bảng điều phối Kanban 4 cột trực quan kèm chuyển trạng thái 1-chạm và chỉ số KPI Conversion Rate.
   - `apps/api/src/__tests__/test-runner.ts`: Mở rộng lên 22 bài kiểm thử tự động.
 
+### Phase 17: Mở Rộng 10 Blocks Chuẩn, Tối Ưu Hóa Media & Webhook Test Console & 26 Tests
+- **Tệp tin**:
+  - `packages/blocks/src/statistics/`: Khối Con số ấn tượng (`statistics`) hỗ trợ layout, animation, counter badges.
+  - `packages/blocks/src/cta_banner/`: Khối Kêu gọi hành động (`cta_banner`) hỗ trợ hotline, email, primary/secondary action buttons.
+  - `packages/blocks/src/index.ts`: Đăng ký tự động 10 blocks chuẩn vào `BlockRegistry` theo Open/Closed Principle.
+  - `packages/media/src/index.ts`: Thuật toán sinh 4 biến thể ảnh thích ứng (`thumbnail`, `card_small`, `card_large`, `hero_full`), hàm `validateMediaUpload()` và `formatFileSize()`.
+  - `apps/api/src/index.ts`: Bộ REST API Media (`/api/v1/media`, `/api/v1/media/upload`, `/api/v1/media/presigned-url`, `/api/v1/media/:id`) & Webhook Test Trigger (`/api/v1/webhooks/test-trigger`).
+  - `apps/admin/src/app/page.tsx`: Nâng cấp Thư viện Media Asset Hub (lọc category, tìm kiếm, xem 4 biến thể, 1-chạm copy CDN) và Bảng Quản trị Webhooks kèm Trình Giả Lập Kích Hoạt Live Test Console.
+  - `apps/web/src/app/page.tsx`: Nhúng và hiển thị hoàn chỉnh 10 blocks trên trang chủ công cộng.
+  - `apps/api/src/__tests__/test-runner.ts`: Mở rộng bộ kiểm thử tự động lên **26 tests** passing 100%.
+
 ---
+
 
 ## 📌 Các File Nơi Lưu Lại Toàn Bộ Tiến Trình
 1. **Mã nguồn Git trên GitHub**: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git) (nhánh `main`) - Lưu vết đầy đủ 18 commits lịch sử.

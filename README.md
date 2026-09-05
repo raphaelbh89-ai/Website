@@ -23,12 +23,12 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 │   ├── admin/         # Next.js 14 App Router: Admin Dashboard, Visual Page Builder, CRM & Theme Customizer
 │   └── api/           # Fastify 4 Backend: REST API, AI Chatbot RAG, Unified Search, CRM & Audit Logs
 ├── packages/
-│   ├── blocks/        # Thư viện 8 block chuẩn (HeroBanner, ProgramList, PartnerSlider, BranchList, NewsList, FormEmbed, TestimonialSlider, FaqAccordion)
+│   ├── blocks/        # Thư viện 10 block chuẩn (HeroBanner, ProgramList, PartnerSlider, BranchList, NewsList, FormEmbed, TestimonialSlider, FaqAccordion, Statistics, CtaBanner)
 │   ├── cms/           # BlockRegistry singleton, Schema Resolver, Versioning & Migrations
 │   ├── auth/          # Ma trận phân quyền RBAC (13 permissions) & Kiểm tra phạm vi cơ sở (canAccessBranchResource)
 │   ├── database/      # Drizzle ORM Schema PostgreSQL 16 (35 bảng, UUIDv7, Soft Delete) & Seed Data
 │   ├── forms/         # Dynamic Form schema validation & builder core
-│   ├── media/         # Quản lý tệp tin, tối ưu hóa WebP & CDN URLs
+│   ├── media/         # Quản lý tệp tin, tối ưu hóa WebP & 4 biến thể ảnh thích ứng (Responsive Image Variants)
 │   ├── seo/           # Tự động sinh JSON-LD Schema.org (School, NewsArticle, Course)
 │   ├── theme/         # Design Tokens generator (:root CSS variables)
 │   ├── ui/            # UI components dùng chung (Buttons, Containers)
@@ -49,7 +49,7 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 - **Rollback 1-chạm (One-Click Rollback)**: Cho phép xem lại chi tiết và khôi phục layout về bất kỳ phiên bản nào trong quá khứ.
 - **Sao lưu cấu hình toàn diện (Site Backup Export)**: Xuất gói cấu hình chuẩn JSON (Blocks layout, theme tokens, menu điều hướng, từ điển i18n).
 
-### 2. Thư Viện 8 Khối Giao Diện Cốt Lõi (Open/Closed Architecture)
+### 2. Thư Viện 10 Khối Giao Diện Cốt Lõi (Open/Closed Architecture)
 1. `hero_banner`: Banner lớn, ảnh nền, overlay opacity, slogan và nút kêu gọi hành động (CTA).
 2. `program_list`: Danh sách chương trình đào tạo chuẩn quốc tế (Mầm non, Tiểu học, Trung học & Tú tài).
 3. `partner_slider`: Băng chuyền đối tác học thuật quốc tế (Cambridge, IB, CIS, Edexcel).
@@ -58,6 +58,8 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 6. `form_embed`: Biểu mẫu đăng ký tuyển sinh trực tuyến tương tác kết nối REST API.
 7. `testimonial_slider`: Lời chia sẻ và cảm nhận thực tế từ phụ huynh & cựu học sinh đạt học bổng quốc tế.
 8. `faq_accordion`: Bảng câu hỏi thường gặp tích hợp đóng/mở tương tác giải đáp thắc mắc tuyển sinh.
+9. `statistics`: Con số ấn tượng (100% đỗ ĐH, 15+ năm kinh nghiệm, 50+ giải thưởng quốc tế, 5000+ học sinh xuất sắc, counter & theme đa dạng).
+10. `cta_banner`: Banner kêu gọi hành động tuyển sinh cao cấp (Hotline nóng, đăng ký tham quan, tải cẩm nang, nền gradient & overlay).
 
 ### 3. Phân Quyền Đa Cơ Sở & Ma Trận Quyền Lực (RBAC Security Matrix)
 - **4 Vai trò cốt lõi**: `SUPER_ADMIN`, `CAMPUS_DIRECTOR`, `ADMISSIONS_OFFICER`, `CONTENT_EDITOR`.
@@ -89,6 +91,7 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 - **Navigation Menus API**: `/api/v1/menus`, `/api/v1/menus/reorder`, `/api/v1/menus/:id` (quản trị liên kết Header/Footer).
 - **Multi-Language (i18n) API**: `/api/v1/translations`, `/api/v1/translations/:key` (quản trị từ điển song ngữ tập trung).
 - **User Accounts & RBAC Matrix API**: `/api/v1/users`, `/api/v1/users/:id/status`, `/api/v1/roles/permissions` (quản lý phân quyền động).
+- **Media Asset Hub API**: `/api/v1/media`, `/api/v1/media/upload`, `/api/v1/media/presigned-url`, `/api/v1/media/:id` (quản lý tệp tin & ảnh biến thể).
 - **System Backup & Restore API**: `/api/v1/system/backup`, `/api/v1/system/restore` (sao lưu & phục hồi toàn bộ trang web).
 ### 9. Công Cụ SEO Rich Snippets & Bảo Mật Biểu Mẫu (Form Sanitization)
 - **Schema.org Structured Data**: Tự động sinh mã JSON-LD chuẩn hóa Google Rich Results:
@@ -102,10 +105,16 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
   - Chuyển đổi linh hoạt giữa chế độ **📋 Danh Sách Bảng** và **📊 Kanban Board 4 Cột** (`Hồ Sơ Mới ➔ Đang Tư Vấn ➔ Đã Hẹn Tham Quan ➔ Đã Nhập Học`).
   - Thanh chỉ số KPI thời gian thực: Tổng hồ sơ, Hồ sơ mới, Đang xử lý, Đã nhập học và Tỷ lệ chốt thành công (`Conversion Rate %`).
   - Nút chuyển trạng thái 1 chạm (Quick Status Progression) trực tiếp trên từng thẻ hồ sơ kèm ghi chú lịch sử.
-- **Hệ Thống Webhook Phân Phối Tự Động (Admissions Webhook Dispatcher)**:
+- **Hệ Thống Webhook Phân Phối Tự Động & Live Test Console**:
   - Tự động kích hoạt khi phát sinh hồ sơ mới (`lead.created`) hoặc cập nhật trạng thái (`lead.status_updated`).
   - Ký số bảo mật điện tử **HMAC SHA-256** qua tiêu đề `X-Webhook-Signature` chống giả mạo dữ liệu.
-  - Hệ thống API REST: `/api/v1/webhooks` (đăng ký, quản lý endpoint) và `/api/v1/webhooks/logs` (lưu vết lịch sử phân phối).
+  - Trình Giả Lập Kích Hoạt (Live Test Console) trên Admin Dashboard cho phép kiểm tra chữ ký HMAC-SHA256 tức thì.
+  - Hệ thống API REST: `/api/v1/webhooks`, `/api/v1/webhooks/test-trigger` và `/api/v1/webhooks/logs`.
+
+### 11. Thư Viện Media Đa Phương Tiện & Tối Ưu Biến Thể Ảnh (Responsive Image Engine)
+- Tự động sinh 4 biến thể kích thước ảnh chuẩn hóa: **Thumbnail (150px) ➔ Mobile Card (480px) ➔ Desktop Grid (800px) ➔ Hero Banner (1920px)** định dạng WebP hiện đại theo mục 8.3 `docs/08-performance.md`.
+- Bộ lọc phân loại tệp tin theo nhóm (`Hình ảnh`, `Tài liệu`, `Video`) và tìm kiếm nhanh.
+- Sao chép 1-chạm URL tối ưu CDN và chèn trực tiếp vào các khối giao diện.
 
 ---
 
@@ -124,7 +133,8 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 22/22 tests passing (BlockRegistry 8 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, All 8 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics).*
+*Kết quả: 26/26 tests passing (BlockRegistry 10 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, All 10 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation).*
+
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu
 ```bash

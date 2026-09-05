@@ -2,6 +2,12 @@ import assert from 'node:assert';
 import { BlockRegistry } from '@school-cms/cms';
 import '@school-cms/blocks';
 import {
+  StatisticsSchema,
+  defaultStatisticsConfig,
+  CtaBannerSchema,
+  defaultCtaBannerConfig,
+} from '@school-cms/blocks';
+import {
   RoleCode,
   hasPermission,
   canAccessBranchResource,
@@ -34,6 +40,13 @@ import {
   dispatchWebhookEvent,
   getWebhooks,
 } from '../webhook';
+import {
+  generateStorageKey,
+  generateResponsiveImageVariants,
+  validateMediaUpload,
+  formatFileSize,
+  detectMediaCategory,
+} from '@school-cms/media';
 
 async function runTestSuite() {
   console.log('====================================================');
@@ -58,9 +71,9 @@ async function runTestSuite() {
   // 1. BLOCK REGISTRY & OPEN/CLOSED ARCHITECTURE
   console.log('--- 1. Block Registry & Dynamic Blocks ---');
 
-  it('BlockRegistry should have all 8 core blocks registered', () => {
+  it('BlockRegistry should have all 10 core blocks registered', () => {
     const blocks = BlockRegistry.getAll();
-    assert.strictEqual(blocks.length >= 8, true, 'Must have at least 8 core blocks registered');
+    assert.strictEqual(blocks.length >= 10, true, 'Must have at least 10 core blocks registered');
     
     const types = blocks.map(b => b.type);
     assert.ok(types.includes('hero_banner'), 'Must register hero_banner');
@@ -71,6 +84,8 @@ async function runTestSuite() {
     assert.ok(types.includes('form_embed'), 'Must register form_embed');
     assert.ok(types.includes('testimonial_slider'), 'Must register testimonial_slider');
     assert.ok(types.includes('faq_accordion'), 'Must register faq_accordion');
+    assert.ok(types.includes('statistics'), 'Must register statistics');
+    assert.ok(types.includes('cta_banner'), 'Must register cta_banner');
   });
 
   it('BlockRegistry should resolve config and apply version migrations', () => {
@@ -79,6 +94,7 @@ async function runTestSuite() {
     assert.strictEqual(heroDef?.version, 1);
     assert.ok(heroDef?.defaultConfig.title);
   });
+
 
   // 2. RBAC & MULTI-TENANT ACCESS CONTROL
   console.log('\n--- 2. RBAC & Multi-Campus Access Scoping ---');
@@ -625,6 +641,138 @@ async function runTestSuite() {
     assert.strictEqual(PIPELINE_STAGES[0].key, 'Mới');
     assert.strictEqual(PIPELINE_STAGES[3].key, 'Đã nhập học');
   });
+
+  // 11. EXTENDED BLOCK LIBRARY & SCHEMA INTEGRITY (10 BLOCKS)
+  console.log('\n--- 11. Extended Block Library & Schema Integrity (10 Blocks) ---');
+
+  it('BlockRegistry should validate schemas and default configs for all 10 registered blocks (including statistics & cta_banner)', () => {
+    // 1. Statistics Block schema verification
+    const statDef = BlockRegistry.get('statistics');
+    assert.ok(statDef, 'Statistics block definition must be registered');
+    assert.strictEqual(statDef.category, 'content');
+    assert.strictEqual(statDef.version, 1);
+    
+    const validStatConfig = StatisticsSchema.parse({
+      title: 'Thành Tựu 2026',
+      items: [
+        { label: 'Tỷ lệ đỗ ĐH', value: '100', suffix: '%' },
+      ],
+    });
+    assert.strictEqual(validStatConfig.title, 'Thành Tựu 2026');
+    assert.strictEqual(validStatConfig.items.length, 1);
+    assert.strictEqual(validStatConfig.layout, 'grid_4_cols');
+
+    // 2. CTA Banner Block schema verification
+    const ctaDef = BlockRegistry.get('cta_banner');
+    assert.ok(ctaDef, 'Cta banner block definition must be registered');
+    assert.strictEqual(ctaDef.category, 'layout');
+    assert.strictEqual(ctaDef.version, 1);
+
+    const validCtaConfig = CtaBannerSchema.parse({
+      title: 'Đăng Ký Tham Quan Trường',
+      primaryButtonText: 'Đăng ký ngay',
+      hotline: '1900 8888',
+    });
+    assert.strictEqual(validCtaConfig.title, 'Đăng Ký Tham Quan Trường');
+    assert.strictEqual(validCtaConfig.hotline, '1900 8888');
+    assert.strictEqual(validCtaConfig.bgGradient, 'emerald');
+
+    // 3. Confirm 10 registered blocks total
+    assert.strictEqual(BlockRegistry.getAll().length >= 10, true);
+  });
+
+  // 12. MEDIA ASSET ENGINE & RESPONSIVE IMAGE OPTIMIZATION
+  console.log('\n--- 12. Media Asset Engine & Responsive Image Optimization ---');
+
+  it('Media Package generates responsive image variants (thumbnail, card_small, card_large, hero_full) and validates upload constraints', () => {
+    const cdnUrl = 'https://school.edu.vn/cdn/media/2026/09/campus.jpg';
+    const storageKey = 'media/2026/09/campus.jpg';
+
+    // 1. Generate 4 responsive variants
+    const variants = generateResponsiveImageVariants(cdnUrl, storageKey);
+    assert.ok(variants.thumbnail.includes('w=150'), 'Thumbnail variant should request width 150px');
+    assert.ok(variants.card_small.includes('w=480'), 'Card small variant should request width 480px');
+    assert.ok(variants.card_large.includes('w=800'), 'Card large variant should request width 800px');
+    assert.ok(variants.hero_full.includes('w=1920'), 'Hero full variant should request width 1920px');
+    assert.ok(variants.thumbnail.includes('format=webp'), 'All variants should request modern WebP format');
+
+    // 2. Validate upload size & MIME constraints
+    const validUpload = validateMediaUpload({
+      filename: 'campus.jpg',
+      mimeType: 'image/jpeg',
+      sizeBytes: 5 * 1024 * 1024, // 5MB
+    });
+    assert.strictEqual(validUpload.valid, true);
+
+    const oversizedUpload = validateMediaUpload({
+      filename: 'huge_video.mp4',
+      mimeType: 'video/mp4',
+      sizeBytes: 50 * 1024 * 1024, // 50MB (exceeds default 25MB)
+    });
+    assert.strictEqual(oversizedUpload.valid, false);
+    assert.ok(oversizedUpload.error?.includes('vượt quá giới hạn'));
+
+    const invalidMimeUpload = validateMediaUpload({
+      filename: 'malicious.exe',
+      mimeType: 'application/x-msdownload',
+      sizeBytes: 1024,
+    });
+    assert.strictEqual(invalidMimeUpload.valid, false);
+    assert.ok(invalidMimeUpload.error?.includes('không được hỗ trợ'));
+  });
+
+  it('Media Asset lifecycle supports category detection, storage key generation, formatted sizes and variant resolution', () => {
+    // 1. Storage Key generation format
+    const storageKey = generateStorageKey('student_profile.png');
+    assert.ok(storageKey.startsWith('media/2026/'), 'Storage key must follow media/YYYY/MM/UUID.ext pattern');
+    assert.ok(storageKey.endsWith('.png'), 'Storage key must preserve extension');
+
+    // 2. Category detection
+    assert.strictEqual(detectMediaCategory('image/webp'), 'image');
+    assert.strictEqual(detectMediaCategory('application/pdf'), 'document');
+    assert.strictEqual(detectMediaCategory('video/mp4'), 'video');
+    assert.strictEqual(detectMediaCategory('application/octet-stream'), 'other');
+
+    // 3. Format file size utility
+    assert.strictEqual(formatFileSize(500), '500 B');
+    assert.strictEqual(formatFileSize(1024 * 1024 * 2.5), '2.5 MB');
+    assert.strictEqual(formatFileSize(1024 * 512), '512.0 KB');
+  });
+
+  // 13. WEBHOOK LIVE TEST SIMULATION & EVENT DISPATCHING
+  console.log('\n--- 13. Webhook Live Test Console & Cryptographic Dispatcher ---');
+
+  it('Webhook Live Test Simulation dispatches events, logs delivery records, and verifies HMAC-SHA256 signature payload integrity', () => {
+    const testPayload = {
+      leadId: 'lead-simulated-999',
+      parentName: 'Phụ Huynh Test Webhook Live',
+      studentName: 'Học Sinh Test Live',
+      grade: 'Lớp 1 (Song ngữ Quốc Tế)',
+      branch: 'Cơ sở Biên Hòa',
+      timestamp: new Date().toISOString(),
+    };
+
+    // 1. Dispatch event to all registered webhook subscribers
+    const dispatchResult = dispatchWebhookEvent('lead.created', testPayload);
+    assert.strictEqual(dispatchResult.payload.event, 'lead.created');
+    assert.ok(dispatchResult.deliveriesDispatched >= 1, 'Must dispatch to active webhook subscribers');
+
+    // 2. Verify each delivery record contains timestamp, status, and target URL
+    for (const delivery of dispatchResult.deliveries) {
+      assert.strictEqual(delivery.status, 'SUCCESS');
+      assert.strictEqual(delivery.statusCode, 200);
+      assert.ok(delivery.url.startsWith('http'));
+      assert.ok(delivery.timestamp);
+    }
+
+
+    // 3. Verify cryptographic HMAC signature integrity
+    const secret = 'whsec_enterprise_secret_2026';
+    const serializedPayload = JSON.stringify(dispatchResult.payload);
+    const signature = generateHmacSignature(serializedPayload, secret);
+    assert.strictEqual(verifyHmacSignature(serializedPayload, signature, secret), true);
+  });
+
 
   console.log('\n====================================================');
   console.log(`📊 TEST RESULTS: ${passed} Passed | ${failed} Failed`);

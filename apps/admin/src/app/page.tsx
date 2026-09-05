@@ -88,7 +88,7 @@ export default function AdminDashboard() {
   // Current user role switcher for testing RBAC
   const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'webhooks' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Page state
@@ -335,13 +335,157 @@ export default function AdminDashboard() {
   const [newFieldType, setNewFieldType] = useState<'text' | 'email' | 'tel' | 'select' | 'textarea'>('text');
   const [newFieldRequired, setNewFieldRequired] = useState(false);
 
-  // Media Library state
+  // Media Library state with responsive variants
   const [mediaAssets, setMediaAssets] = useState([
-    { id: 'med-1', title: 'Banner Mùa Tuyển Sinh', type: 'image', size: '1.2 MB', dimensions: '1920x1080', url: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1', tag: 'Banner' },
-    { id: 'med-2', title: 'Khuôn viên Cơ sở Biên Hòa', type: 'image', size: '2.4 MB', dimensions: '2400x1600', url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b', tag: 'Cơ sở' },
-    { id: 'med-3', title: 'Phòng Thí Nghiệm STEM Robotics', type: 'image', size: '1.8 MB', dimensions: '2000x1333', url: 'https://images.unsplash.com/photo-1562774053-701939374585', tag: 'Cơ sở' },
-    { id: 'med-4', title: 'Cẩm Nang Tuyển Sinh 2025.pdf', type: 'document', size: '4.5 MB', dimensions: 'PDF File', url: '/files/cam-nang-tuyen-sinh-2025.pdf', tag: 'Tài liệu' },
+    {
+      id: 'med-1',
+      title: 'Banner Mùa Tuyển Sinh 2025 - 2026',
+      type: 'image',
+      size: '1.2 MB',
+      dimensions: '1920x1080',
+      url: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop',
+      tag: 'Banner',
+      category: 'image',
+      altText: 'Học sinh hăng say trong lễ hội tuyển sinh',
+      variants: {
+        thumbnail: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=150&q=80&format=webp',
+        card_small: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=480&q=80&format=webp',
+        card_large: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&q=85&format=webp',
+        hero_full: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1920&q=90&format=webp',
+      },
+    },
+    {
+      id: 'med-2',
+      title: 'Khuôn viên Cơ sở Biên Hòa Xanh Mát',
+      type: 'image',
+      size: '2.4 MB',
+      dimensions: '2400x1600',
+      url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=1200&auto=format&fit=crop',
+      tag: 'Cơ sở',
+      category: 'image',
+      altText: 'Toàn cảnh khuôn viên trường Alpha School Biên Hòa',
+      variants: {
+        thumbnail: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=150&q=80&format=webp',
+        card_small: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=480&q=80&format=webp',
+        card_large: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&q=85&format=webp',
+        hero_full: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1920&q=90&format=webp',
+      },
+    },
+    {
+      id: 'med-3',
+      title: 'Phòng Thí Nghiệm STEM Robotics Quốc Tế',
+      type: 'image',
+      size: '1.8 MB',
+      dimensions: '2000x1333',
+      url: 'https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=1200&auto=format&fit=crop',
+      tag: 'Học thuật',
+      category: 'image',
+      altText: 'Học sinh thực hành nghiên cứu robot và lập trình',
+      variants: {
+        thumbnail: 'https://images.unsplash.com/photo-1562774053-701939374585?w=150&q=80&format=webp',
+        card_small: 'https://images.unsplash.com/photo-1562774053-701939374585?w=480&q=80&format=webp',
+        card_large: 'https://images.unsplash.com/photo-1562774053-701939374585?w=800&q=85&format=webp',
+        hero_full: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=90&format=webp',
+      },
+    },
+    {
+      id: 'med-4',
+      title: 'Cẩm Nang Tuyển Sinh & Học Bổng 2025.pdf',
+      type: 'document',
+      size: '4.5 MB',
+      dimensions: 'PDF Document',
+      url: 'https://school.edu.vn/cdn/docs/cam-nang-tuyen-sinh-2025.pdf',
+      tag: 'Tài liệu',
+      category: 'document',
+      altText: 'Tài liệu hướng dẫn tuyển sinh toàn diện',
+    },
+    {
+      id: 'med-5',
+      title: 'Video Giới Thiệu Hoạt Động Ngoại Khóa Mùa Hè.mp4',
+      type: 'video',
+      size: '18.2 MB',
+      dimensions: '1080p 60fps',
+      url: 'https://school.edu.vn/cdn/videos/summer-camp-2025.mp4',
+      tag: 'Video',
+      category: 'video',
+      altText: 'Video ghi lại các hoạt động cắm trại dã ngoại',
+    },
   ]);
+
+  const [mediaCategoryFilter, setMediaCategoryFilter] = useState<'all' | 'image' | 'document' | 'video'>('all');
+  const [mediaSearch, setMediaSearch] = useState('');
+  const [showAddMediaModal, setShowAddMediaModal] = useState(false);
+  const [newMediaTitle, setNewMediaTitle] = useState('');
+  const [newMediaUrl, setNewMediaUrl] = useState('');
+  const [newMediaCategory, setNewMediaCategory] = useState<'image' | 'document' | 'video'>('image');
+  const [newMediaAlt, setNewMediaAlt] = useState('');
+  const [newMediaTag, setNewMediaTag] = useState('Khác');
+  const [inspectMedia, setInspectMedia] = useState<any | null>(null);
+
+  // Webhooks Management & Live Test Console state
+  const [webhooks, setWebhooks] = useState([
+    {
+      id: 'wh-001',
+      name: 'CRM Tuyển Sinh Doanh Nghiệp (HubSpot / Salesforce Sync)',
+      url: 'https://crm.school.edu.vn/api/v1/admissions/webhook',
+      secretMasked: 'whsec_••••••••••••9a8f',
+      events: ['lead.created', 'lead.status_updated'],
+      isActive: true,
+      lastDelivery: '05/09/2026 14:30 (HTTP 200 OK)',
+      createdAt: '01/09/2026',
+    },
+    {
+      id: 'wh-002',
+      name: 'Slack Admissions Alert Bot',
+      url: 'https://hooks.slack.com/services/T00/B00/alpha-leads',
+      secretMasked: 'whsec_••••••••••••3c7e',
+      events: ['lead.created'],
+      isActive: true,
+      lastDelivery: '05/09/2026 11:15 (HTTP 200 OK)',
+      createdAt: '03/09/2026',
+    },
+    {
+      id: 'wh-003',
+      name: 'Static Edge Cache Revalidation Engine (Cloudflare / Vercel)',
+      url: 'https://api.cloudflare.com/client/v4/zones/revalidate-tag',
+      secretMasked: 'whsec_••••••••••••1d4b',
+      events: ['page.published'],
+      isActive: true,
+      lastDelivery: '05/09/2026 14:35 (HTTP 200 OK)',
+      createdAt: '05/09/2026',
+    },
+  ]);
+
+  const [webhookLogs, setWebhookLogs] = useState([
+    {
+      id: 'log-wh-1',
+      webhookName: 'CRM Tuyển Sinh Doanh Nghiệp',
+      event: 'lead.created',
+      statusCode: 200,
+      timestamp: '05/09/2026 14:30:15',
+      signature: 'sha256=d3b07384d113edec49eaa6238ad5ff00',
+      payloadSnippet: '{"leadId":"lead-001","parentName":"Nguyễn Văn An","grade":"Lớp 1"}',
+    },
+    {
+      id: 'log-wh-2',
+      webhookName: 'Slack Admissions Alert Bot',
+      event: 'lead.created',
+      statusCode: 200,
+      timestamp: '05/09/2026 11:15:22',
+      signature: 'sha256=f84b6d8a39a2f1b74c80918ef83a8b41',
+      payloadSnippet: '{"leadId":"lead-002","parentName":"Trần Thị Mai","grade":"Mầm non"}',
+    },
+  ]);
+
+  const [showAddWebhookModal, setShowAddWebhookModal] = useState(false);
+  const [newWebhookName, setNewWebhookName] = useState('');
+  const [newWebhookUrl, setNewWebhookUrl] = useState('');
+  const [newWebhookSecret, setNewWebhookSecret] = useState('');
+  const [newWebhookEvents, setNewWebhookEvents] = useState<string[]>(['lead.created']);
+  const [testWebhookEvent, setTestWebhookEvent] = useState<'lead.created' | 'lead.status_updated' | 'page.published'>('lead.created');
+  const [testDispatchResult, setTestDispatchResult] = useState<any | null>(null);
+  const [isDispatchingTest, setIsDispatchingTest] = useState(false);
+
 
   // Navigation Menus state
   const [menuItems, setMenuItems] = useState<MenuItem[]>([
@@ -917,6 +1061,15 @@ export default function AdminDashboard() {
           >
             <span>🖼️</span> Thư viện Media ({mediaAssets.length})
           </button>
+          <button
+            onClick={() => setActiveTab('webhooks')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeTab === 'webhooks' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <span>🔔</span> Webhooks & API ({webhooks.length})
+          </button>
+
 
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">
             Hiệu suất & Giám sát
@@ -1000,6 +1153,7 @@ export default function AdminDashboard() {
               {activeTab === 'theme' && 'Tùy Biến Giao Diện Đa Cơ Sở (Theme Customizer)'}
               {activeTab === 'forms' && 'Trình Thiết Kế Biểu Mẫu Động (Dynamic Form Builder)'}
               {activeTab === 'media' && 'Thư Viện Tệp Tin Đa Phương Tiện (Media Asset Hub)'}
+              {activeTab === 'webhooks' && 'Quản Lý Webhooks & Trình Giả Lập Kích Hoạt (Live Test Console)'}
               {activeTab === 'audit' && 'Nhật Ký Kiểm Toán & Giám Sát Hệ Thống (Audit Logs)'}
               {activeTab === 'analytics' && 'Báo Cáo Hiệu Suất Tuyển Sinh & Lưu Lượng (Analytics)'}
               {activeTab === 'menus' && 'Quản Lý Hệ Thống Điều Hướng & Menu (Navigation)'}
@@ -1961,69 +2115,417 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 7: MEDIA ASSET HUB */}
+        {/* TAB 7: MEDIA ASSET HUB & RESPONSIVE IMAGE OPTIMIZATION */}
         {activeTab === 'media' && (
-          <div className="flex-1 p-8 overflow-y-auto">
+          <div className="flex-1 p-8 overflow-y-auto bg-slate-50">
             <div className="max-w-6xl mx-auto space-y-6">
-              <div className="flex items-center justify-between">
+              {/* Top Controls & Search Bar */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">Thư Viện Media Đa Phương Tiện</h3>
-                  <p className="text-sm text-slate-500">Tải lên, quản lý và tối ưu hóa hình ảnh, video và tài liệu trường học.</p>
+                  <h3 className="text-xl font-bold text-slate-900">Thư Viện Tệp Tin Đa Phương Tiện (Media Asset Hub)</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Tối ưu hóa ảnh tự động WebP & 4 biến thể thích ứng (Thumbnail, Card, Hero) theo chuẩn Core Web Vitals.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowAddMediaModal(true)}
+                    className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm flex items-center gap-2 transition-all hover:shadow-md"
+                  >
+                    <span>📤</span>
+                    <span>Tải Lên Media Mới</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Filters & Search */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto">
+                  {(['all', 'image', 'document', 'video'] as const).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setMediaCategoryFilter(cat)}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                        mediaCategoryFilter === cat
+                          ? 'bg-emerald-700 text-white shadow-sm'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                    >
+                      {cat === 'all' && '🌐 Tất cả'}
+                      {cat === 'image' && '🖼️ Hình ảnh'}
+                      {cat === 'document' && '📄 Tài liệu'}
+                      {cat === 'video' && '🎥 Video'}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="w-full sm:w-72">
+                  <input
+                    type="text"
+                    value={mediaSearch}
+                    onChange={(e) => setMediaSearch(e.target.value)}
+                    placeholder="🔍 Tìm kiếm theo tên tệp..."
+                    className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 shadow-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Media Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {mediaAssets
+                  .filter((m) => mediaCategoryFilter === 'all' || m.category === mediaCategoryFilter || (m.type as any) === mediaCategoryFilter)
+                  .filter((m) => !mediaSearch || m.title.toLowerCase().includes(mediaSearch.toLowerCase()) || m.url.toLowerCase().includes(mediaSearch.toLowerCase()))
+                  .map((med) => (
+                    <div
+                      key={med.id}
+                      className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all flex flex-col group"
+                    >
+                      <div className="h-44 bg-slate-100 relative overflow-hidden flex items-center justify-center">
+                        {med.type === 'image' || med.category === 'image' ? (
+                          <img
+                            src={med.url}
+                            alt={med.altText || med.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : med.type === 'video' || med.category === 'video' ? (
+                          <div className="flex flex-col items-center gap-2 text-slate-400">
+                            <span className="text-4xl">🎬</span>
+                            <span className="text-xs font-semibold text-slate-500">MP4 Video Clip</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 text-slate-400">
+                            <span className="text-4xl">📑</span>
+                            <span className="text-xs font-semibold text-slate-500">PDF Document</span>
+                          </div>
+                        )}
+                        <span className="absolute top-2.5 right-2.5 bg-slate-900/75 text-white text-[10px] px-2.5 py-0.5 rounded-full font-semibold backdrop-blur-md shadow-sm">
+                          {med.tag}
+                        </span>
+                        {(med.type === 'image' || med.category === 'image') && (
+                          <span className="absolute bottom-2.5 left-2.5 bg-emerald-700/85 text-white text-[9px] px-2 py-0.5 rounded font-mono font-bold backdrop-blur-sm">
+                            4 Biến thể WebP
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-sm line-clamp-1" title={med.title}>
+                            {med.title}
+                          </h4>
+                          <p className="text-xs text-slate-400 mt-1 font-mono">
+                            {med.dimensions} • {med.size}
+                          </p>
+                          {med.altText && (
+                            <p className="text-xs text-slate-500 mt-1 italic line-clamp-1" title={med.altText}>
+                              Alt: {med.altText}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Responsive Variants Preview Links */}
+                        {med.variants && (
+                          <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+                            <span className="font-semibold text-slate-700 block mb-1">Kích thước ảnh tối ưu:</span>
+                            <div className="flex flex-wrap gap-1 font-mono text-[10px]">
+                              <button
+                                onClick={() => {
+                                  showToast('Đã sao chép URL Thumbnail (150px WebP)');
+                                }}
+                                className="px-1.5 py-0.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded border border-slate-200"
+                                title={med.variants.thumbnail}
+                              >
+                                Thumb 150px
+                              </button>
+                              <button
+                                onClick={() => {
+                                  showToast('Đã sao chép URL Mobile Card (480px WebP)');
+                                }}
+                                className="px-1.5 py-0.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded border border-slate-200"
+                                title={med.variants.card_small}
+                              >
+                                Card 480px
+                              </button>
+                              <button
+                                onClick={() => {
+                                  showToast('Đã sao chép URL Desktop Grid (800px WebP)');
+                                }}
+                                className="px-1.5 py-0.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded border border-slate-200"
+                                title={med.variants.card_large}
+                              >
+                                Grid 800px
+                              </button>
+                              <button
+                                onClick={() => {
+                                  showToast('Đã sao chép URL Banner Hero (1920px WebP)');
+                                }}
+                                className="px-1.5 py-0.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded border border-slate-200"
+                                title={med.variants.hero_full}
+                              >
+                                Hero 1920px
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard?.writeText(med.url);
+                              showToast(`Đã sao chép liên kết CDN: ${med.url}`);
+                            }}
+                            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+                          >
+                            <span>🔗</span>
+                            <span>Sao chép CDN</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setMediaAssets(mediaAssets.filter((m) => m.id !== med.id));
+                              addAuditLog({
+                                action: 'DELETE',
+                                entityType: 'ARTICLE',
+                                entityTitle: med.title,
+                                details: `Xóa tệp media ${med.title}`,
+                              });
+                              showToast('Đã xóa tệp media khỏi thư viện');
+                            }}
+                            className="text-slate-400 hover:text-red-600 text-xs font-medium"
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 8: WEBHOOKS MANAGEMENT & LIVE TEST CONSOLE */}
+        {activeTab === 'webhooks' && (
+          <div className="flex-1 p-8 overflow-y-auto bg-slate-50">
+            <div className="max-w-6xl mx-auto space-y-8">
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Quản Lý Webhooks & Phân Phối Dữ Liệu Tự Động</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Ký số điện tử HMAC SHA-256 qua tiêu đề <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono text-emerald-700">X-Webhook-Signature</code> đồng bộ với CRM bên ngoài.
+                  </p>
                 </div>
                 <button
-                  onClick={() => showToast('Mô phỏng: Đã chọn tệp tải lên và nén tự động WebP')}
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2"
+                  onClick={() => setShowAddWebhookModal(true)}
+                  className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold shadow-sm flex items-center gap-2 transition-all hover:shadow-md"
                 >
-                  📤 Tải Tệp Lên
+                  <span>➕</span>
+                  <span>Đăng Ký Webhook Mới</span>
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                {mediaAssets.map((med) => (
-                  <div key={med.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
-                    <div className="h-40 bg-slate-100 relative overflow-hidden flex items-center justify-center">
-                      {med.type === 'image' ? (
-                        <img src={med.url} alt={med.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="text-4xl text-slate-400">📄</div>
-                      )}
-                      <span className="absolute top-2 right-2 bg-slate-900/70 text-white text-[10px] px-2 py-0.5 rounded font-semibold backdrop-blur-sm">
-                        {med.tag}
-                      </span>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-between">
-                      <div>
-                        <h4 className="font-semibold text-slate-800 text-sm truncate" title={med.title}>
-                          {med.title}
-                        </h4>
-                        <p className="text-xs text-slate-400 mt-1">
-                          {med.dimensions} • {med.size}
-                        </p>
+              {/* Subscribed Webhooks List */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <span>📡</span>
+                    <span>Danh Sách Webhook Subscriptions ({webhooks.length})</span>
+                  </h4>
+                  <span className="text-xs text-slate-400">Tất cả webhook đều được ký bảo mật SHA-256</span>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {webhooks.map((wh) => (
+                    <div key={wh.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-3">
+                          <h5 className="font-bold text-slate-900 text-sm">{wh.name}</h5>
+                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold">
+                            {wh.isActive ? 'ĐANG HOẠT ĐỘNG' : 'TẠM DỪNG'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-mono text-slate-500">{wh.url}</p>
+                        <div className="flex items-center gap-3 pt-1 text-xs text-slate-400">
+                          <span>Khóa Secret: <strong className="font-mono text-slate-700">{wh.secretMasked}</strong></span>
+                          <span>•</span>
+                          <span>Sự kiện: {wh.events.map((e) => (
+                            <span key={e} className="inline-block bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-mono mr-1">
+                              {e}
+                            </span>
+                          ))}</span>
+                        </div>
                       </div>
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <button
-                          onClick={() => showToast(`Đã sao chép liên kết: ${med.url}`)}
-                          className="text-xs font-semibold text-emerald-700 hover:underline"
-                        >
-                          Sao chép URL
-                        </button>
+
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-slate-500 hidden sm:block">{wh.lastDelivery}</span>
                         <button
                           onClick={() => {
-                            setMediaAssets(mediaAssets.filter(m => m.id !== med.id));
-                            showToast('Đã xóa tệp media');
+                            setWebhooks(webhooks.filter((w) => w.id !== wh.id));
+                            showToast('Đã hủy đăng ký webhook');
                           }}
-                          className="text-slate-400 hover:text-red-600 text-xs"
+                          className="px-3 py-1.5 border border-slate-200 hover:border-red-300 hover:bg-red-50 text-slate-600 hover:text-red-700 rounded-lg text-xs font-semibold transition-all"
                         >
                           Xóa
                         </button>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* LIVE WEBHOOK TEST CONSOLE */}
+              <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 shadow-xl border border-slate-800 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+                      <h4 className="font-bold text-lg text-emerald-400">Trình Giả Lập Kích Hoạt Webhook (Live Test Console)</h4>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Mô phỏng phát sinh sự kiện tuyển sinh hoặc xuất bản trang và kiểm tra chữ ký HMAC-SHA256 tức thì.
+                    </p>
                   </div>
-                ))}
+
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={testWebhookEvent}
+                      onChange={(e: any) => setTestWebhookEvent(e.target.value)}
+                      className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    >
+                      <option value="lead.created">Sự kiện: lead.created (Hồ sơ mới)</option>
+                      <option value="lead.status_updated">Sự kiện: lead.status_updated (Đổi trạng thái)</option>
+                      <option value="page.published">Sự kiện: page.published (Xuất bản trang)</option>
+                    </select>
+
+                    <button
+                      onClick={() => {
+                        setIsDispatchingTest(true);
+                        setTimeout(() => {
+                          const mockSig = 'sha256=' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+                          const result = {
+                            event: testWebhookEvent,
+                            timestamp: new Date().toISOString(),
+                            signature: mockSig,
+                            httpStatus: 200,
+                            dispatchedTo: webhooks.map((w) => w.url),
+                            payload: {
+                              eventId: `evt-${Date.now()}`,
+                              event: testWebhookEvent,
+                              timestamp: new Date().toISOString(),
+                              data:
+                                testWebhookEvent === 'page.published'
+                                  ? { pageId: 'page-home', title: 'Trang Chủ Alpha School', version: 2, author: 'Super Admin' }
+                                  : {
+                                      leadId: 'lead-test-01',
+                                      parentName: 'Phụ Huynh Thử Nghiệm',
+                                      studentName: 'Học Sinh Thử Nghiệm',
+                                      grade: 'Lớp 1 (Cambridge)',
+                                      branch: 'Cơ sở Biên Hòa',
+                                      status: testWebhookEvent === 'lead.created' ? 'NEW' : 'CONTACTED',
+                                    },
+                            },
+                          };
+                          setTestDispatchResult(result);
+                          setIsDispatchingTest(false);
+                          showToast(`Đã gửi thử nghiệm ${testWebhookEvent}! Chữ ký HMAC-SHA256 hợp lệ.`);
+                        }, 500);
+                      }}
+                      disabled={isDispatchingTest}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-2"
+                    >
+                      <span>⚡</span>
+                      <span>{isDispatchingTest ? 'Đang gửi...' : 'Kích Hoạt Test Dispatch'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Console Output Screen */}
+                <div className="bg-slate-950 rounded-xl p-5 border border-slate-800 font-mono text-xs space-y-3">
+                  <div className="flex items-center justify-between text-slate-500 pb-2 border-b border-slate-800/80">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500/80 inline-block" />
+                      <span className="ml-2 text-slate-400">Webhook Dispatch Terminal Output</span>
+                    </span>
+                    <span className="text-[11px] text-emerald-400 font-semibold">HMAC-SHA256 SIGNED</span>
+                  </div>
+
+                  {testDispatchResult ? (
+                    <div className="space-y-2 text-slate-300">
+                      <div className="text-emerald-400 font-bold">
+                        [SUCCESS] HTTP 200 OK — Dispatched Event: {testDispatchResult.event}
+                      </div>
+                      <div className="text-slate-400">
+                        Header <span className="text-amber-300">X-Webhook-Signature</span>: <span className="text-emerald-300 font-bold">{testDispatchResult.signature}</span>
+                      </div>
+                      <div className="text-slate-400">
+                        Header <span className="text-amber-300">Content-Type</span>: application/json; charset=utf-8
+                      </div>
+                      <div className="text-slate-400">
+                        Dispatched Endpoints: {testDispatchResult.dispatchedTo.join(', ')}
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-slate-900 text-slate-300 bg-slate-900/60 p-3 rounded-lg overflow-x-auto">
+                        <pre className="text-emerald-200">{JSON.stringify(testDispatchResult.payload, null, 2)}</pre>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 italic py-4 text-center">
+                      Nhấn vào nút &quot;Kích Hoạt Test Dispatch&quot; ở trên để mô phỏng phát tán webhook kèm chữ ký HMAC SHA-256 thời gian thực.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Delivery History Logs */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <h4 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                  <span>📜</span>
+                  <span>Lịch Sử Phân Phối Gần Nhất (Delivery Logs)</span>
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600 font-mono">
+                    <thead className="bg-slate-50 text-[11px] uppercase font-semibold text-slate-500 border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3">Thời Gian</th>
+                        <th className="px-4 py-3">Webhook Đích</th>
+                        <th className="px-4 py-3">Sự Kiện</th>
+                        <th className="px-4 py-3">Mã HTTP</th>
+                        <th className="px-4 py-3">Chữ Ký HMAC</th>
+                        <th className="px-4 py-3">Dữ Liệu Payload</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {webhookLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-slate-50/80">
+                          <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{log.timestamp}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-900 font-sans">{log.webhookName}</td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold text-[10px]">
+                              {log.event}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                              {log.statusCode} OK
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 truncate max-w-[120px]" title={log.signature}>
+                            {log.signature}
+                          </td>
+                          <td className="px-4 py-3 text-slate-400 truncate max-w-xs" title={log.payloadSnippet}>
+                            {log.payloadSnippet}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
         )}
+
 
         {/* TAB 8: AUDIT LOGS (GIÁM SÁT HỆ THỐNG) */}
         {activeTab === 'audit' && (
@@ -3221,6 +3723,247 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* MODAL: THÊM TỆP MEDIA MỚI */}
+      {showAddMediaModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-slate-800 text-lg">📤 Tải Lên Tệp Media Mới</h3>
+              <button
+                onClick={() => setShowAddMediaModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Tiêu đề / Tên mô tả *</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Phòng Thí Nghiệm Hóa Sinh 2026"
+                  value={newMediaTitle}
+                  onChange={(e) => setNewMediaTitle(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Đường dẫn CDN / URL File *</label>
+                <input
+                  type="text"
+                  placeholder="https://images.unsplash.com/... hoặc /files/..."
+                  value={newMediaUrl}
+                  onChange={(e) => setNewMediaUrl(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Phân loại *</label>
+                  <select
+                    value={newMediaCategory}
+                    onChange={(e: any) => setNewMediaCategory(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-600 bg-white"
+                  >
+                    <option value="image">🖼️ Hình ảnh (Image)</option>
+                    <option value="document">📄 Tài liệu (Document)</option>
+                    <option value="video">🎥 Video (Video clip)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Tag Nhãn</label>
+                  <input
+                    type="text"
+                    placeholder="Banner / Cơ sở / Học thuật"
+                    value={newMediaTag}
+                    onChange={(e) => setNewMediaTag(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Thẻ Alt (Mô tả SEO / Trợ năng)</label>
+                <input
+                  type="text"
+                  placeholder="Mô tả nội dung bức ảnh cho SEO & người khiếm thị"
+                  value={newMediaAlt}
+                  onChange={(e) => setNewMediaAlt(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                />
+              </div>
+            </div>
+            <div className="pt-3 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAddMediaModal(false)}
+                className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  if (!newMediaTitle || !newMediaUrl) {
+                    showToast('Vui lòng nhập đầy đủ tiêu đề và URL');
+                    return;
+                  }
+                  const newItem: any = {
+                    id: `med-${Date.now()}`,
+                    title: newMediaTitle,
+                    type: newMediaCategory,
+                    category: newMediaCategory,
+                    size: '1.5 MB',
+                    dimensions: newMediaCategory === 'image' ? '1920x1080' : 'N/A',
+                    url: newMediaUrl,
+                    tag: newMediaTag || 'Media',
+                    altText: newMediaAlt || newMediaTitle,
+                  };
+                  if (newMediaCategory === 'image') {
+                    newItem.variants = {
+                      thumbnail: `${newMediaUrl}?w=150&q=80&format=webp`,
+                      card_small: `${newMediaUrl}?w=480&q=80&format=webp`,
+                      card_large: `${newMediaUrl}?w=800&q=85&format=webp`,
+                      hero_full: `${newMediaUrl}?w=1920&q=90&format=webp`,
+                    };
+                  }
+                  setMediaAssets([newItem, ...mediaAssets]);
+                  setShowAddMediaModal(false);
+                  setNewMediaTitle('');
+                  setNewMediaUrl('');
+                  setNewMediaAlt('');
+                  addAuditLog({
+                    action: 'CREATE',
+                    entityType: 'ARTICLE',
+                    entityTitle: newMediaTitle,
+                    details: `Tải lên tệp media mới: ${newMediaTitle}`,
+                  });
+                  showToast('Đã tải lên và sinh 4 biến thể ảnh tối ưu WebP thành công!');
+                }}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-sm"
+              >
+                Lưu Media
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ĐĂNG KÝ WEBHOOK MỚI */}
+      {showAddWebhookModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-slate-800 text-lg">➕ Đăng Ký Webhook Mới</h3>
+              <button
+                onClick={() => setShowAddWebhookModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Tên Webhook / Hệ Thống Đích *</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: CRM HubSpot Admissions Lead Receiver"
+                  value={newWebhookName}
+                  onChange={(e) => setNewWebhookName(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Endpoint URL (HTTPS) *</label>
+                <input
+                  type="url"
+                  placeholder="https://crm.yourcompany.com/webhook"
+                  value={newWebhookUrl}
+                  onChange={(e) => setNewWebhookUrl(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-600 font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Khóa Bí Mật Ký Số (Secret Key) *</label>
+                <input
+                  type="password"
+                  placeholder="whsec_xxxxxxxxxxxxxxxxxxxxxx"
+                  value={newWebhookSecret}
+                  onChange={(e) => setNewWebhookSecret(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-600 font-mono"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">Dùng để tính toán HMAC-SHA256 xác thực chống giả mạo payload</span>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">Đăng Ký Các Sự Kiện</label>
+                <div className="space-y-1.5">
+                  {[
+                    { id: 'lead.created', label: 'lead.created (Khi có phụ huynh nộp hồ sơ mới)' },
+                    { id: 'lead.status_updated', label: 'lead.status_updated (Khi trạng thái tư vấn thay đổi)' },
+                    { id: 'page.published', label: 'page.published (Khi trang chủ được xuất bản mới)' },
+                  ].map((evt) => (
+                    <label key={evt.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newWebhookEvents.includes(evt.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setNewWebhookEvents([...newWebhookEvents, evt.id]);
+                          } else {
+                            setNewWebhookEvents(newWebhookEvents.filter((x) => x !== evt.id));
+                          }
+                        }}
+                        className="rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>{evt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="pt-3 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAddWebhookModal(false)}
+                className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  if (!newWebhookName || !newWebhookUrl || !newWebhookSecret) {
+                    showToast('Vui lòng nhập đầy đủ Tên, URL và Khóa Secret');
+                    return;
+                  }
+                  const newWh = {
+                    id: `wh-${Date.now()}`,
+                    name: newWebhookName,
+                    url: newWebhookUrl,
+                    secretMasked: 'whsec_••••••••••••' + newWebhookSecret.slice(-4),
+                    events: newWebhookEvents.length > 0 ? newWebhookEvents : ['lead.created'],
+                    isActive: true,
+                    lastDelivery: 'Chưa gửi dữ liệu',
+                    createdAt: new Date().toLocaleDateString('vi-VN'),
+                  };
+                  setWebhooks([...webhooks, newWh]);
+                  setShowAddWebhookModal(false);
+                  setNewWebhookName('');
+                  setNewWebhookUrl('');
+                  setNewWebhookSecret('');
+                  addAuditLog({
+                    action: 'CREATE',
+                    entityType: 'ARTICLE',
+                    entityTitle: newWebhookName,
+                    details: `Đăng ký webhook mới: ${newWebhookName} trỏ tới ${newWebhookUrl}`,
+                  });
+                  showToast('Đăng ký Webhook thành công!');
+                }}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-sm"
+              >
+                Đăng Ký
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

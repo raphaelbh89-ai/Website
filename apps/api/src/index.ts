@@ -21,6 +21,14 @@ import {
   RolePermissions,
 } from '@school-cms/auth';
 import {
+  MediaAsset,
+  generateResponsiveImageVariants,
+  generateStorageKey,
+  validateMediaUpload,
+  formatFileSize,
+  detectMediaCategory,
+} from '@school-cms/media';
+import {
   getWebhooks,
   createWebhook,
   deleteWebhook,
@@ -264,6 +272,76 @@ let submissionsStore: LeadSubmission[] = [
     status: 'CONVERTED',
     notes: [{ text: 'Học sinh đã đạt bài test, phụ huynh đã đóng phí ghi danh.', author: 'Ban Giám Hiệu', createdAt: '2026-09-03T09:00:00.000Z' }],
     createdAt: '2026-09-02T15:20:00.000Z',
+let mediaStore: MediaAsset[] = [
+  {
+    id: 'med-001',
+    title: 'Khuôn viên Alpha School Cơ sở Biên Hòa',
+    filename: 'alpha-bien-hoa-campus.jpg',
+    originalName: 'campus-full.jpg',
+    mimeType: 'image/jpeg',
+    sizeBytes: 2450000,
+    formattedSize: '2.3 MB',
+    category: 'image',
+    storageKey: 'media/2026/09/alpha-bien-hoa-campus.jpg',
+    cdnUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=1200&auto=format&fit=crop',
+    altText: 'Khuôn viên xanh hiện đại tại cơ sở Biên Hòa',
+    caption: 'Khuôn viên trường học liên cấp quốc tế',
+    dimensions: { width: 1920, height: 1080 },
+    variants: generateResponsiveImageVariants('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=1200&auto=format&fit=crop', 'media/2026/09/alpha-bien-hoa-campus.jpg'),
+    branchId: 'b-001',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'med-002',
+    title: 'Phòng Thí Nghiệm Khoa Học STEM Hiện Đại',
+    filename: 'stem-science-lab.jpg',
+    originalName: 'stem-lab.jpg',
+    mimeType: 'image/jpeg',
+    sizeBytes: 1850000,
+    formattedSize: '1.8 MB',
+    category: 'image',
+    storageKey: 'media/2026/09/stem-science-lab.jpg',
+    cdnUrl: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=1200&auto=format&fit=crop',
+    altText: 'Phòng thí nghiệm thực hành STEM đạt chuẩn Cambridge',
+    caption: 'Không gian nghiên cứu công nghệ & khoa học',
+    dimensions: { width: 1920, height: 1080 },
+    variants: generateResponsiveImageVariants('https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=1200&auto=format&fit=crop', 'media/2026/09/stem-science-lab.jpg'),
+    branchId: 'b-002',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'med-003',
+    title: 'Cẩm Nang Tuyển Sinh & Học Bổng 2025 - 2026',
+    filename: 'alpha-school-prospectus-2025.pdf',
+    originalName: 'prospectus-2025.pdf',
+    mimeType: 'application/pdf',
+    sizeBytes: 5200000,
+    formattedSize: '5.0 MB',
+    category: 'document',
+    storageKey: 'media/2026/09/alpha-school-prospectus-2025.pdf',
+    cdnUrl: 'https://school.edu.vn/cdn/docs/prospectus-2025.pdf',
+    altText: 'Cẩm nang thông tin tuyển sinh toàn diện',
+    branchId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'med-004',
+    title: 'Video Giới Thiệu Trường Học Quốc Tế Alpha School',
+    filename: 'intro-video-alpha-school.mp4',
+    originalName: 'intro-hd.mp4',
+    mimeType: 'video/mp4',
+    sizeBytes: 15400000,
+    formattedSize: '14.7 MB',
+    category: 'video',
+    storageKey: 'media/2026/09/intro-video-alpha-school.mp4',
+    cdnUrl: 'https://school.edu.vn/cdn/videos/intro.mp4',
+    altText: 'Video giới thiệu toàn cảnh trường học',
+    branchId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
 ];
 
@@ -1649,6 +1727,7 @@ server.get('/api/v1/health', async () => {
     translationsCount: translationsStore.length,
     usersCount: usersStore.length,
     webhooksCount: getWebhooks().length,
+    mediaCount: mediaStore.length,
   });
 });
 
@@ -1692,6 +1771,157 @@ server.delete('/api/v1/webhooks/:id', async (req, reply) => {
 server.get('/api/v1/webhooks/logs', async () => {
   return formatSuccessResponse(getDeliveryLogs());
 });
+
+server.post('/api/v1/webhooks/test-trigger', async (req) => {
+  const body = req.body as any;
+  const event = body?.event || 'lead.created';
+  const payload = body?.payload || {
+    leadId: `test-lead-${Date.now()}`,
+    parentName: 'Phụ Huynh Test Webhook',
+    studentName: 'Học Sinh Thử Nghiệm',
+    grade: 'Lớp 1 (Song ngữ)',
+    branch: 'Cơ sở Biên Hòa',
+    timestamp: new Date().toISOString(),
+  };
+
+  const results = dispatchWebhookEvent(event, payload);
+  return formatSuccessResponse({
+    dispatchedCount: results.length,
+    event,
+    results,
+  });
+});
+
+// 12. MEDIA ASSET HUB & RESPONSIVE IMAGE OPTIMIZATION API
+server.get('/api/v1/media', async (req) => {
+  const query = req.query as { category?: string; search?: string; branchId?: string };
+  let result = [...mediaStore];
+
+  if (query.category && query.category !== 'all') {
+    result = result.filter((m) => m.category === query.category);
+  }
+
+  if (query.search) {
+    const s = query.search.toLowerCase();
+    result = result.filter(
+      (m) =>
+        m.title.toLowerCase().includes(s) ||
+        m.filename.toLowerCase().includes(s) ||
+        (m.altText && m.altText.toLowerCase().includes(s))
+    );
+  }
+
+  if (query.branchId) {
+    result = result.filter((m) => !m.branchId || m.branchId === query.branchId);
+  }
+
+  return formatSuccessResponse(result);
+});
+
+server.post('/api/v1/media/upload', async (req, reply) => {
+  const body = req.body as any;
+  if (!body?.filename || !body?.mimeType) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: { code: 'INVALID_INPUT', message: 'Tên tệp filename và định dạng mimeType là bắt buộc' },
+    });
+  }
+
+  const sizeBytes = body.sizeBytes || 1024 * 500;
+  const validation = validateMediaUpload({
+    filename: body.filename,
+    mimeType: body.mimeType,
+    sizeBytes,
+    maxSizeBytes: body.maxSizeBytes,
+  });
+
+  if (!validation.valid) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: { code: 'VALIDATION_FAILED', message: validation.error },
+    });
+  }
+
+  const storageKey = body.storageKey || generateStorageKey(body.filename);
+  const cdnUrl = body.cdnUrl || `https://school.edu.vn/cdn/${storageKey}`;
+  const category = detectMediaCategory(body.mimeType);
+  const variants = category === 'image' ? generateResponsiveImageVariants(cdnUrl, storageKey) : undefined;
+
+  const newAsset: MediaAsset = {
+    id: `med-${Date.now()}`,
+    title: body.title || body.filename,
+    filename: body.filename,
+    originalName: body.originalName || body.filename,
+    mimeType: body.mimeType,
+    sizeBytes,
+    formattedSize: formatFileSize(sizeBytes),
+    category,
+    storageKey,
+    cdnUrl,
+    altText: body.altText || body.title || '',
+    caption: body.caption || '',
+    dimensions: body.dimensions || (category === 'image' ? { width: 1920, height: 1080 } : undefined),
+    variants,
+    branchId: body.branchId || null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  mediaStore.unshift(newAsset);
+  recordAudit({
+    userId: 'u-admin-01',
+    userName: 'Super Admin',
+    userRole: 'SUPER_ADMIN',
+    branchId: body.branchId || null,
+    action: 'CREATE',
+    entityType: 'ARTICLE',
+    entityId: newAsset.id,
+    entityTitle: `Media: ${newAsset.title}`,
+    details: { filename: newAsset.filename, category: newAsset.category, sizeBytes },
+    ipAddress: '127.0.0.1',
+  });
+
+  return formatSuccessResponse(newAsset);
+});
+
+server.post('/api/v1/media/presigned-url', async (req, reply) => {
+  const body = req.body as any;
+  if (!body?.filename || !body?.mimeType) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: { code: 'INVALID_INPUT', message: 'filename và mimeType là bắt buộc' },
+    });
+  }
+
+  const storageKey = generateStorageKey(body.filename);
+  const cdnUrl = `https://school.edu.vn/cdn/${storageKey}`;
+
+  return formatSuccessResponse({
+    uploadUrl: `https://storage.googleapis.com/alpha-school-media-bucket/${storageKey}?upload_id=mock_${Date.now()}`,
+    storageKey,
+    cdnUrl,
+    expiresInSeconds: 3600,
+  });
+});
+
+server.delete('/api/v1/media/:id', async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const index = mediaStore.findIndex((m) => m.id === id);
+  if (index === -1) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy tệp media cần xóa' },
+    });
+  }
+
+  const removed = mediaStore.splice(index, 1)[0];
+  return formatSuccessResponse({ deleted: true, id: removed.id });
+});
+
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
 

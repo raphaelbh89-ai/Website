@@ -168,7 +168,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/web/src/app/page.tsx`: Trưng bày trọn vẹn cả 12 khối giao diện cốt lõi trên trang chủ công cộng.
   - `apps/api/src/__tests__/test-runner.ts`: Mở rộng bộ kiểm thử tự động lên **30 tests** passing 100%.
 
-### Phase 19: Hoàn Thiện 16/16 Khối Giao Diện Chuẩn, Tuyển Sinh Trực Tuyến Đa Bước & 35 Tests
+### Phase 19: Hoàn Thiện 16/16 Khối Giao Diện Chuẩn, Tuyển Sinh Trực Tuyến Đa Bước & 35 Tests (Commit: 4905a28)
 - **Tệp tin**:
   - `packages/blocks/src/video_player/`: Khối Trình chiếu Video (`video_player`) hỗ trợ YouTube / Vimeo / MP4, tỉ lệ 16:9, xem trước poster và modal phát video tương tác kèm phân đoạn chapters.
   - `packages/blocks/src/google_map/`: Khối Bản đồ Google Map (`google_map`) hỗ trợ chuyển đổi cơ sở (Hà Nội, TP.HCM, Biên Hòa), hiển thị thẻ địa chỉ, hotline, giờ làm việc và nút mở chỉ đường Google Maps.

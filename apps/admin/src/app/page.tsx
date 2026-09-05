@@ -63,6 +63,18 @@ import {
   getConductLabel,
   ATTENDANCE_STATUS_LABELS,
 } from '@school-cms/portal';
+import {
+  PartitionMetadata,
+  ArchivalPolicy,
+  ArchivalJobRecord,
+  QueryPlanSimulation,
+  DATA_TIER_LABELS,
+  INITIAL_PARTITIONS,
+  DEFAULT_ARCHIVAL_POLICIES,
+  INITIAL_ARCHIVAL_HISTORY,
+  globalPartitionRouter,
+  globalArchivalEngine,
+} from '@school-cms/database';
 
 interface BlockItem {
   id: string;
@@ -140,7 +152,7 @@ export default function AdminDashboard() {
   // Current user role switcher for testing RBAC
   const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'admissions' | 'payments' | 'portal' | 'chatbot' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'admissions' | 'payments' | 'portal' | 'partitioning' | 'chatbot' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Admissions state
@@ -307,6 +319,24 @@ export default function AdminDashboard() {
   const [selectedStudentForModal, setSelectedStudentForModal] = useState<StudentProfile | null>(null);
   const [studentModalTab, setStudentModalTab] = useState<'academic' | 'attendance' | 'timetable' | 'parent'>('academic');
   const [showStudentModal, setShowStudentModal] = useState<boolean>(false);
+
+  // Database Partitioning & Archival Scale Hub state
+  const [partitionsList, setPartitionsList] = useState<PartitionMetadata[]>([...INITIAL_PARTITIONS]);
+  const [archivalHistoryList, setArchivalHistoryList] = useState<ArchivalJobRecord[]>([...INITIAL_ARCHIVAL_HISTORY]);
+  const [archivalPoliciesList] = useState<ArchivalPolicy[]>([...DEFAULT_ARCHIVAL_POLICIES]);
+  const [partitionSearch, setPartitionSearch] = useState<string>('');
+  const [partitionTableFilter, setPartitionTableFilter] = useState<string>('all');
+  const [partitionTierFilter, setPartitionTierFilter] = useState<string>('all');
+  const [scaleSubTab, setScaleSubTab] = useState<'matrix' | 'simulator' | 'archival'>('matrix');
+  const [pruneSimCampus, setPruneSimCampus] = useState<string>('branch-bh-01');
+  const [pruneSimResult, setPruneSimResult] = useState<QueryPlanSimulation | null>(null);
+  const [showProvisionModal, setShowProvisionModal] = useState<boolean>(false);
+  const [newPartCampusName, setNewPartCampusName] = useState<string>('');
+  const [newPartCampusCode, setNewPartCampusCode] = useState<string>('');
+  const [newPartTable, setNewPartTable] = useState<string>('attendance_records');
+  const [isArchivingRunning, setIsArchivingRunning] = useState<boolean>(false);
+  const [archiveSearchInput, setArchiveSearchInput] = useState<string>('');
+  const [archiveLookupResult, setArchiveLookupResult] = useState<any>(null);
 
   // AI Chatbot Knowledge Base & Live Console state
   const [knowledgeSources, setKnowledgeSources] = useState<KnowledgeSource[]>([...INITIAL_KNOWLEDGE_SOURCES]);
@@ -1512,6 +1542,14 @@ export default function AdminDashboard() {
             }`}
           >
             <span>⚡</span> Hiệu Năng & Cache ({cacheMetrics.hitRatio}%)
+          </button>
+          <button
+            onClick={() => setActiveTab('partitioning')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeTab === 'partitioning' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <span>🗄️</span> CSDL & Phân Vùng ({partitionsList.length})
           </button>
 
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">
@@ -3707,6 +3745,653 @@ export default function AdminDashboard() {
                   </div>
                 );
               })()}
+            </div>
+          );
+        })()}
+
+        {/* TAB: DATABASE PARTITIONING, MULTI-CAMPUS SHARDING & ARCHIVAL SCALE HUB */}
+        {activeTab === 'partitioning' && (() => {
+          const stats = globalPartitionRouter.getPartitionStats();
+          const archivalSummary = globalArchivalEngine.getArchivalSummary();
+
+          const filteredPartitions = partitionsList.filter((p) => {
+            const matchesTable = partitionTableFilter === 'all' || p.tableName === partitionTableFilter;
+            const matchesTier = partitionTierFilter === 'all' || p.tier === partitionTierFilter;
+            const q = partitionSearch.trim().toLowerCase();
+            const matchesSearch =
+              !q ||
+              p.partitionName.toLowerCase().includes(q) ||
+              p.tableName.toLowerCase().includes(q) ||
+              (p.branchName && p.branchName.toLowerCase().includes(q)) ||
+              (p.academicYear && p.academicYear.toLowerCase().includes(q));
+            return matchesTable && matchesTier && matchesSearch;
+          });
+
+          const handleRunSimulation = () => {
+            const sim = globalPartitionRouter.simulatePartitionPruning({
+              targetTable: 'attendance_records',
+              branchId: pruneSimCampus,
+            });
+            setPruneSimResult(sim);
+            showToast('Đã tính toán kế hoạch thực thi cắt tỉa phân vùng!');
+          };
+
+          const handleExecuteArchival = () => {
+            setIsArchivingRunning(true);
+            setTimeout(() => {
+              const job = globalArchivalEngine.executeArchival({
+                targetTable: 'attendance_records',
+                cutoffDays: 180,
+                targetTier: 'COLD',
+              });
+              setArchivalHistoryList([job, ...archivalHistoryList]);
+              setIsArchivingRunning(false);
+              showToast(`Đã lưu trữ thành công ${job.recordsMigrated.toLocaleString()} bản ghi sang Cold Tier (Tiết kiệm ${(job.bytesSaved / 1024 / 1024).toFixed(1)} MB)!`);
+            }, 600);
+          };
+
+          const handleProvisionPartition = () => {
+            if (!newPartCampusCode.trim()) {
+              showToast('Vui lòng nhập mã cơ sở!');
+              return;
+            }
+            const result = globalPartitionRouter.provisionCampusPartitions({
+              tableName: newPartTable,
+              branchId: newPartCampusCode,
+              branchName: newPartCampusName || `Cơ sở ${newPartCampusCode}`,
+              branchCode: newPartCampusCode,
+              strategy: 'LIST',
+            });
+            setPartitionsList([...partitionsList, result.createdPartition]);
+            setShowProvisionModal(false);
+            setNewPartCampusCode('');
+            setNewPartCampusName('');
+            showToast(`Đã cấp phát phân vùng [${result.createdPartition.partitionName}] thành công!`);
+          };
+
+          const handleSearchArchive = () => {
+            if (!archiveSearchInput.trim()) return;
+            const res = globalArchivalEngine.lookupArchivedRecord(archiveSearchInput.trim());
+            setArchiveLookupResult(res);
+          };
+
+          return (
+            <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200 mb-2">
+                    <span>🗄️</span> Database Partitioning & High-Volume Scale (Docs 11.4 & 12.3)
+                  </div>
+                  <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                    Quản Trị Phân Vùng CSDL & Lưu Trữ Dữ Liệu Lịch Sử (50 Cơ Sở)
+                  </h1>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Cơ chế phân vùng khai báo PostgreSQL 16 (LIST & RANGE), cắt tỉa truy vấn (Partition Pruning) và vòng đời dữ liệu đa tầng (Hot / Warm / Cold).
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowProvisionModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-700 hover:bg-purple-600 text-white font-bold text-xs rounded-xl shadow transition-all"
+                  >
+                    <span>➕</span> Cấp Phát Phân Vùng Cơ Sở Mới
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isArchivingRunning}
+                    onClick={handleExecuteArchival}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition-all disabled:opacity-50"
+                  >
+                    <span>{isArchivingRunning ? '⏳' : '⚡'}</span> {isArchivingRunning ? 'Đang Lưu Trữ...' : 'Chạy Chu Kỳ Lưu Trữ'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm relative overflow-hidden">
+                  <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-2">
+                    <span>TỔNG PHÂN VÙNG CSDL</span>
+                    <span className="p-1.5 rounded-lg bg-purple-50 text-purple-600">🗄️</span>
+                  </div>
+                  <div className="text-3xl font-black text-slate-900">{partitionsList.length}</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Sẵn sàng mở rộng <strong>50+ cơ sở</strong>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm relative overflow-hidden">
+                  <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-2">
+                    <span>HIỆU QUẢ CẮT TỈA (PRUNING)</span>
+                    <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">⚡</span>
+                  </div>
+                  <div className="text-3xl font-black text-emerald-600">{stats.averagePruningEfficiencyPercentage}%</div>
+                  <div className="text-xs text-emerald-700 font-medium mt-1">
+                    Giảm tải quét bản ghi tuần tự
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-blue-100 shadow-sm relative overflow-hidden">
+                  <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-2">
+                    <span>HỒ SƠ ĐÃ LƯU TRỮ (COLD)</span>
+                    <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">📦</span>
+                  </div>
+                  <div className="text-3xl font-black text-blue-600">
+                    {archivalSummary.totalRecordsArchived.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-blue-700 font-medium mt-1">
+                    Tuân thủ chuẩn Bộ GD&ĐT 5-10 năm
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-amber-100 shadow-sm relative overflow-hidden">
+                  <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-2">
+                    <span>DUNG LƯỢNG TIẾT KIỆM</span>
+                    <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600">💾</span>
+                  </div>
+                  <div className="text-3xl font-black text-amber-600">
+                    {(archivalSummary.totalBytesSaved / 1024 / 1024).toFixed(1)} MB
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Tỷ lệ nén: <strong>{archivalSummary.avgCompressionRatio}%</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-tabs Navigation Bar */}
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-3">
+                <button
+                  onClick={() => setScaleSubTab('matrix')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    scaleSubTab === 'matrix'
+                      ? 'bg-purple-700 text-white shadow'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  🏛️ Ma Trận Phân Vùng 50 Cơ Sở ({partitionsList.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setScaleSubTab('simulator');
+                    if (!pruneSimResult) handleRunSimulation();
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    scaleSubTab === 'simulator'
+                      ? 'bg-purple-700 text-white shadow'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  ⚡ Giả Lập Cắt Tỉa Truy Vấn (Pruning Simulator)
+                </button>
+                <button
+                  onClick={() => setScaleSubTab('archival')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    scaleSubTab === 'archival'
+                      ? 'bg-purple-700 text-white shadow'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  📦 Vòng Đời Dữ Liệu & Lịch Sử Lưu Trữ ({archivalHistoryList.length})
+                </button>
+              </div>
+
+              {/* SUBTAB 1: CAMPUS PARTITION MATRIX */}
+              {scaleSubTab === 'matrix' && (
+                <div className="space-y-4">
+                  {/* Filters bar */}
+                  <div className="flex flex-col sm:flex-row gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        placeholder="Tìm theo tên phân vùng, cơ sở, bảng..."
+                        value={partitionSearch}
+                        onChange={(e) => setPartitionSearch(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-purple-600"
+                      />
+                    </div>
+                    <select
+                      value={partitionTableFilter}
+                      onChange={(e) => setPartitionTableFilter(e.target.value)}
+                      className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none font-semibold text-slate-700"
+                    >
+                      <option value="all">Tất cả bảng dữ liệu</option>
+                      <option value="attendance_records">attendance_records (Điểm danh)</option>
+                      <option value="audit_logs">audit_logs (Kiểm toán)</option>
+                      <option value="payment_transactions">payment_transactions (Tài chính)</option>
+                    </select>
+                    <select
+                      value={partitionTierFilter}
+                      onChange={(e) => setPartitionTierFilter(e.target.value)}
+                      className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none font-semibold text-slate-700"
+                    >
+                      <option value="all">Tất cả cấp lưu trữ (All Tiers)</option>
+                      <option value="HOT">🔥 Nóng (Hot Tier)</option>
+                      <option value="WARM">🌤️ Ấm (Warm Tier)</option>
+                      <option value="COLD">❄️ Lạnh (Cold Archive)</option>
+                    </select>
+                  </div>
+
+                  {/* Partitions Table */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-left text-xs text-slate-600">
+                      <thead className="bg-slate-50 font-bold uppercase text-[11px] text-slate-500 border-b border-slate-200">
+                        <tr>
+                          <th className="p-4">Tên Phân Vùng (Partition)</th>
+                          <th className="p-4">Bảng Gốc</th>
+                          <th className="p-4">Cơ Sở / Phạm Vi</th>
+                          <th className="p-4 text-center">Chiến Lược</th>
+                          <th className="p-4 text-center">Cấp Lưu Trữ (Tier)</th>
+                          <th className="p-4 text-right">Số Bản Ghi</th>
+                          <th className="p-4 text-right">Dung Lượng</th>
+                          <th className="p-4 text-center">Bảo Trì Gần Nhất</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredPartitions.map((p) => {
+                          const tierInfo = DATA_TIER_LABELS[p.tier];
+                          return (
+                            <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="p-4 font-mono font-bold text-slate-900">
+                                <div className="flex items-center gap-2">
+                                  <span>{p.isDefault ? '🛡️' : p.tier === 'HOT' ? '🔥' : p.tier === 'WARM' ? '🌤️' : '❄️'}</span>
+                                  <span>{p.partitionName}</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-sans block mt-0.5">
+                                  {p.valuesClause}
+                                </span>
+                              </td>
+                              <td className="p-4 font-mono text-purple-700 font-semibold">{p.tableName}</td>
+                              <td className="p-4 font-medium text-slate-800">
+                                {p.branchName || (p.isDefault ? 'Toàn hệ thống (Catch-all)' : p.academicYear || 'Toàn trường')}
+                              </td>
+                              <td className="p-4 text-center">
+                                <span className="px-2 py-0.5 rounded font-mono font-bold bg-slate-100 text-slate-700 text-[10px]">
+                                  {p.strategy}
+                                </span>
+                              </td>
+                              <td className="p-4 text-center">
+                                <span className={`px-2.5 py-1 rounded-full font-bold text-[10px] border ${tierInfo.badge}`}>
+                                  {tierInfo.label}
+                                </span>
+                              </td>
+                              <td className="p-4 text-right font-mono font-bold text-slate-900">
+                                {p.rowCount.toLocaleString()}
+                              </td>
+                              <td className="p-4 text-right font-mono text-slate-600">
+                                {(p.sizeBytes / 1024 / 1024).toFixed(1)} MB
+                              </td>
+                              <td className="p-4 text-center text-[11px] text-slate-400 font-mono">
+                                {p.lastVacuumAt ? p.lastVacuumAt.split('T')[0] : 'Auto'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* SUBTAB 2: QUERY PLANNER & PARTITION PRUNING SIMULATOR */}
+              {scaleSubTab === 'simulator' && (
+                <div className="space-y-6">
+                  {/* Interactive Control Panel */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                      <span>⚙️</span> Cấu Hình Tham Số Giả Lập Truy Vấn PostgreSQL 16 EXPLAIN ANALYZE
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Cơ sở truy vấn dữ liệu:</label>
+                        <select
+                          value={pruneSimCampus}
+                          onChange={(e) => setPruneSimCampus(e.target.value)}
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white font-semibold text-slate-800 focus:outline-none"
+                        >
+                          <option value="branch-bh-01">Alpha School - Cơ sở Biên Hòa</option>
+                          <option value="branch-td-02">Alpha School - Cơ sở TP. Thủ Đức</option>
+                          <option value="branch-cg-03">Alpha School - Cơ sở Cầu Giấy (Hà Nội)</option>
+                          <option value="branch-dn-04">Alpha School - Cơ sở Đà Nẵng</option>
+                          <option value="branch-hp-05">Alpha School - Cơ sở Hải Phòng</option>
+                          <option value="branch-ct-06">Alpha School - Cơ sở Cần Thơ</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Bảng dữ liệu kiểm tra:</label>
+                        <input
+                          type="text"
+                          disabled
+                          value="attendance_records (Điểm danh học sinh)"
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 font-medium"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          onClick={handleRunSimulation}
+                          className="w-full py-2.5 px-4 bg-purple-700 hover:bg-purple-600 text-white font-bold text-xs rounded-xl shadow transition-all"
+                        >
+                          ▶️ Chạy Lập Kế Hoạch Truy Vấn
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Simulator Results Comparison Grid */}
+                  {pruneSimResult && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Left: Unpartitioned Monolithic Table */}
+                      <div className="bg-red-50/50 rounded-2xl border-2 border-red-200 p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase bg-red-100 text-red-800 border border-red-200">
+                            ❌ Bảng Đơn Khối (Không Phân Vùng)
+                          </span>
+                          <span className="text-xs font-bold text-red-700">Hiệu Năng Chậm</span>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500 font-bold uppercase">Phương thức quét:</div>
+                          <div className="text-sm font-black text-red-900 font-mono mt-0.5">
+                            {pruneSimResult.unpartitionedExecution.planType}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-xs bg-white p-4 rounded-xl border border-red-100">
+                          <div>
+                            <span className="text-slate-400 block">Số dòng phải quét:</span>
+                            <span className="text-base font-black text-red-700 font-mono">
+                              {pruneSimResult.unpartitionedExecution.totalRowsScanned.toLocaleString()} dòng
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block">Thời gian thực thi:</span>
+                            <span className="text-base font-black text-red-700 font-mono">
+                              ~{pruneSimResult.unpartitionedExecution.executionTimeMs} ms
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block">Ước tính Chi phí (Cost):</span>
+                            <span className="font-bold text-slate-800 font-mono">
+                              {pruneSimResult.unpartitionedExecution.estimatedCost.toLocaleString()} units
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block">Buffer Hits:</span>
+                            <span className="font-bold text-slate-800 font-mono">
+                              {pruneSimResult.unpartitionedExecution.bufferHits.toLocaleString()} blocks
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-red-700 bg-red-100/60 p-3 rounded-xl">
+                          ⚠️ <strong>Rủi ro khi quy mô 50 cơ sở:</strong> B-Tree Index phình to, quét toàn bộ hàng triệu dòng của các trường khác gây nghẽn RAM và tăng độ trễ truy vấn trang sổ liên lạc.
+                        </div>
+                      </div>
+
+                      {/* Right: Partition-Pruned Table */}
+                      <div className="bg-emerald-50/50 rounded-2xl border-2 border-emerald-300 p-6 space-y-4 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            ✅ Bảng Phân Vùng (Partition Pruning Kích Hoạt)
+                          </span>
+                          <span className="text-xs font-black text-emerald-700">
+                            Nhanh hơn {pruneSimResult.prunedPartitionExecution.speedupFactor}x!
+                          </span>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500 font-bold uppercase">Phương thức quét:</div>
+                          <div className="text-sm font-black text-emerald-900 font-mono mt-0.5">
+                            {pruneSimResult.prunedPartitionExecution.planType}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-xs bg-white p-4 rounded-xl border border-emerald-100">
+                          <div>
+                            <span className="text-slate-400 block">Số dòng quét thực tế:</span>
+                            <span className="text-base font-black text-emerald-700 font-mono">
+                              {pruneSimResult.prunedPartitionExecution.totalRowsScanned.toLocaleString()} dòng
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block">Thời gian phản hồi:</span>
+                            <span className="text-base font-black text-emerald-700 font-mono">
+                              ~{pruneSimResult.prunedPartitionExecution.executionTimeMs} ms (Sub-10ms)
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block">Ước tính Chi phí (Cost):</span>
+                            <span className="font-bold text-slate-800 font-mono">
+                              {pruneSimResult.prunedPartitionExecution.estimatedCost.toLocaleString()} units
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block">Phân vùng loại bỏ:</span>
+                            <span className="font-bold text-purple-700 font-mono">
+                              {pruneSimResult.prunedPartitionExecution.prunedPartitionsCount} phân vùng (Bỏ qua)
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-emerald-800 bg-emerald-100/70 p-3 rounded-xl space-y-1">
+                          <div><strong>🎉 Kết quả tối ưu:</strong> {pruneSimResult.explanation}</div>
+                          <div className="font-mono text-[10px] text-emerald-900">Mục tiêu: {pruneSimResult.prunedPartitionExecution.targetedPartitions.join(', ')}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SUBTAB 3: DATA LIFECYCLE & ARCHIVAL CENTER */}
+              {scaleSubTab === 'archival' && (
+                <div className="space-y-6">
+                  {/* Policies Cards */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                      <span>📋</span> Chính Sách Vòng Đời Dữ Liệu Tự Động (Data Retention Policies)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {archivalPoliciesList.map((pol) => (
+                        <div key={pol.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-slate-900">{pol.name}</span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${DATA_TIER_LABELS[pol.targetTier].badge}`}>
+                              ➔ {DATA_TIER_LABELS[pol.targetTier].label}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500">{pol.description}</p>
+                          <div className="flex items-center gap-3 text-[10px] font-mono text-slate-600 pt-1 border-t border-slate-200">
+                            <span>Bảng: <strong>{pol.targetTable}</strong></span>
+                            <span>•</span>
+                            <span>Ngưỡng: <strong>{pol.retentionDays} ngày</strong></span>
+                            <span>•</span>
+                            <span>Nén: <strong>{pol.compression}</strong></span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Cold Archive Search Engine */}
+                  <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-6 rounded-2xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-base flex items-center gap-2">
+                          <span>❄️</span> Tra Cứu Hồ Sơ Lưu Trữ Lịch Sử (Cold Archive Catalog Search)
+                        </h4>
+                        <p className="text-xs text-blue-200 mt-1">
+                          Truy vấn trực tiếp hồ sơ học bạ hoặc giao dịch các niên khóa trước mà không cần nạp lại toàn bộ bảng vào bộ nhớ chính.
+                        </p>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                        Zero-Downtime Query
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nhập mã học sinh hoặc ID bản ghi (ví dụ: att-hist-2023-01)..."
+                        value={archiveSearchInput}
+                        onChange={(e) => setArchiveSearchInput(e.target.value)}
+                        className="flex-1 px-4 py-2 text-xs rounded-xl bg-slate-800 text-white border border-blue-400/30 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSearchArchive}
+                        className="px-5 py-2 bg-blue-500 hover:bg-blue-400 text-white font-bold text-xs rounded-xl transition-all"
+                      >
+                        Tra Cứu Kho Lưu Trữ
+                      </button>
+                    </div>
+
+                    {archiveLookupResult && (
+                      <div className="bg-slate-800/80 p-4 rounded-xl border border-blue-400/30 text-xs space-y-2 font-mono">
+                        <div className="text-emerald-400 font-bold font-sans">✓ Đã tìm thấy bản ghi trong kho lưu trữ lạnh:</div>
+                        <div className="text-slate-300">Phân vùng lưu trữ: <strong>{archiveLookupResult.archivePartition}</strong> (Niên khóa {archiveLookupResult.academicYear})</div>
+                        <div className="text-slate-300">Thời điểm lưu trữ: {archiveLookupResult.archivedAt}</div>
+                        <pre className="bg-slate-900 p-3 rounded-lg text-[11px] text-blue-200 overflow-x-auto">
+                          {JSON.stringify(archiveLookupResult.dataPayload, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Archival Jobs History Table */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-800 uppercase tracking-wider">
+                        Nhật Ký Các Đợt Lưu Trữ & Nén Dữ Liệu
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Tổng số tác vụ: <strong>{archivalHistoryList.length}</strong>
+                      </span>
+                    </div>
+                    <table className="w-full text-left text-xs text-slate-600">
+                      <thead className="bg-slate-50 font-bold uppercase text-[10px] text-slate-400 border-b border-slate-200">
+                        <tr>
+                          <th className="p-4">Mã Tác Vụ</th>
+                          <th className="p-4">Bảng & Phân Vùng</th>
+                          <th className="p-4 text-center">Chuyển Cấp</th>
+                          <th className="p-4 text-right">Bản Ghi Đã Chuyển</th>
+                          <th className="p-4 text-right">Dung Lượng Gốc</th>
+                          <th className="p-4 text-right">Sau Khi Nén</th>
+                          <th className="p-4 text-right">Tiết Kiệm</th>
+                          <th className="p-4 text-center">Trạng Thái & Checksum</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {archivalHistoryList.map((job) => (
+                          <tr key={job.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="p-4 font-mono font-bold text-slate-900">{job.id}</td>
+                            <td className="p-4 font-mono">
+                              <span className="font-bold text-purple-700">{job.sourceTable}</span>
+                              <span className="text-slate-400 block text-[10px]">{job.partitionName}</span>
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className="font-bold text-[10px]">
+                                {job.sourceTier} ➔ <strong className="text-blue-600">{job.targetTier}</strong>
+                              </span>
+                            </td>
+                            <td className="p-4 text-right font-mono font-bold text-slate-900">
+                              {job.recordsMigrated.toLocaleString()}
+                            </td>
+                            <td className="p-4 text-right font-mono text-slate-500">
+                              {(job.originalSizeBytes / 1024 / 1024).toFixed(1)} MB
+                            </td>
+                            <td className="p-4 text-right font-mono text-blue-600 font-bold">
+                              {(job.compressedSizeBytes / 1024 / 1024).toFixed(1)} MB
+                            </td>
+                            <td className="p-4 text-right font-mono text-emerald-600 font-bold">
+                              {(job.bytesSaved / 1024 / 1024).toFixed(1)} MB ({job.compressionRatio}%)
+                            </td>
+                            <td className="p-4 text-center font-mono text-[10px]">
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
+                                ✓ SUCCESS
+                              </span>
+                              <span className="text-slate-400 block mt-1 truncate max-w-[120px]" title={job.checksumSha256}>
+                                {job.checksumSha256.substring(0, 12)}...
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* MODAL: PROVISION NEW CAMPUS PARTITION */}
+              {showProvisionModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                  <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                      <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                        <span>➕</span> Cấp Phát Phân Vùng Cho Cơ Sở Mới
+                      </h3>
+                      <button
+                        onClick={() => setShowProvisionModal(false)}
+                        className="text-slate-400 hover:text-slate-600 font-bold text-lg"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                    <div className="space-y-3 text-xs">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Tên cơ sở mới *</label>
+                        <input
+                          type="text"
+                          placeholder="Ví dụ: Alpha School - Cơ sở Nha Trang"
+                          value={newPartCampusName}
+                          onChange={(e) => setNewPartCampusName(e.target.value)}
+                          className="w-full border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-purple-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Mã định danh cơ sở (Branch ID / Code) *</label>
+                        <input
+                          type="text"
+                          placeholder="Ví dụ: branch-nt-07 hoặc nha_trang"
+                          value={newPartCampusCode}
+                          onChange={(e) => setNewPartCampusCode(e.target.value)}
+                          className="w-full border border-slate-300 rounded-xl px-3 py-2 font-mono focus:outline-none focus:ring-1 focus:ring-purple-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Bảng dữ liệu phân vùng *</label>
+                        <select
+                          value={newPartTable}
+                          onChange={(e) => setNewPartTable(e.target.value)}
+                          className="w-full border border-slate-300 rounded-xl px-3 py-2 bg-white font-semibold"
+                        >
+                          <option value="attendance_records">attendance_records (Điểm danh chuyên cần)</option>
+                          <option value="audit_logs">audit_logs (Nhật ký kiểm toán)</option>
+                          <option value="payment_transactions">payment_transactions (Giao dịch tài chính)</option>
+                        </select>
+                      </div>
+
+                      <div className="p-3 bg-slate-900 rounded-xl text-slate-300 font-mono text-[10px] space-y-1">
+                        <div className="text-purple-400 font-bold">SQL DDL PostgreSQL 16 Preview:</div>
+                        <div className="text-emerald-300 break-all">
+                          CREATE TABLE IF NOT EXISTS {newPartTable}_{newPartCampusCode || 'campus'} PARTITION OF {newPartTable} FOR VALUES IN ('{newPartCampusCode || 'campus'}');
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-2">
+                      <button
+                        onClick={() => setShowProvisionModal(false)}
+                        className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-100"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        onClick={handleProvisionPartition}
+                        className="px-5 py-2 bg-purple-700 hover:bg-purple-600 text-white font-bold rounded-xl shadow"
+                      >
+                        Thực Thi Cấp Phát (Execute DDL)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}

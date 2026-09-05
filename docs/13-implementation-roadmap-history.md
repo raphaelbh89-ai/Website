@@ -1,10 +1,10 @@
 # Lịch Sử Triển Khai Chi Tiết Các Phase (Implementation History & Changelog)
 
-Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alpha School Website Management Framework / Modular CMS / Page Builder** từ Phase 1 đến Phase 16, kèm danh sách file thay đổi và mã băm Git Commit tương ứng đã được push lên GitHub repository: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git).
+Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alpha School Website Management Framework / Modular CMS / Page Builder** từ Phase 1 đến Phase 24, kèm danh sách file thay đổi và mã băm Git Commit tương ứng đã được push lên GitHub repository: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git).
 
 ---
 
-## 📋 Bảng Tổng Hợp 16 Phase
+## 📋 Bảng Tổng Hợp 24 Phase
 
 | Phase | Tên Giai Đoạn & Nội Dung Cốt Lõi | Trạng Thái | Commit Hash |
 |---|---|---|---|
@@ -31,6 +31,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 21** | Đa Cơ Sở Hybrid Subdomain Routing, Scoped Theming, Xem Trước Bảo Mật HMAC & So Sánh Snapshot Diff & 45 Tests | Hoàn thành | `ee74d60` |
 | **Phase 22** | Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN & 50 Tests | Hoàn thành | `77fec7a` |
 | **Phase 23** | Cổng Phụ Huynh & Sổ Liên Lạc Điện Tử `@school-cms/portal`, Scoping Guard, Điểm Danh & 55 Tests | Hoàn thành | `55ea9a0` |
+| **Phase 24** | Phân Vùng CSDL Database Partitioning, Cắt Tỉa Truy Vấn & Vòng Đời Lưu Trữ 50 Cơ Sở & 60 Tests | Hoàn thành | `Đang cập nhật` |
 
 ---
 
@@ -322,12 +323,56 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/api/src/__tests__/test-runner.ts`:
     - Bổ sung Section 20 với 5 bài kiểm thử tự động chuyên sâu (Tests 51 - 55) nâng tổng số lên **55 tests passing 100%**.
 
+### Phase 24: Database Partitioning Strategy, Multi-Campus Sharding Simulation & High-Volume Data Lifecycle Management (Hot / Warm / Cold Archiving)
+- **Tệp tin**:
+  - `packages/database/src/partitioning/types.ts`:
+    - Định nghĩa enum `PartitionStrategy` (`'LIST' | 'RANGE' | 'HASH'`), `DataTier` (`'HOT' | 'WARM' | 'COLD'`).
+    - Lược đồ dữ liệu `PartitionMetadata`, `ArchivalPolicy`, `ArchivalJobRecord`, `QueryPlanSimulation`.
+    - Zod Schemas chuẩn hóa cho request DTO: `ProvisionPartitionRequestSchema`, `PrunePlanRequestSchema`, `ExecuteArchivalRequestSchema`.
+  - `packages/database/src/partitioning/ddl-generator.ts`:
+    - Lớp `PartitionDdlGenerator` phát sinh câu lệnh DDL PostgreSQL 16 chuẩn hóa: bảng cha (`PARTITION BY LIST/RANGE/HASH`), bảng con theo cơ sở (`FOR VALUES IN`), bảng mặc định (`DEFAULT`), bảng phạm vi ngày tháng (`FOR VALUES FROM ... TO ...`).
+    - Hỗ trợ thao tác tách phân vùng không khóa bảng: `DETACH PARTITION ... CONCURRENTLY`.
+  - `packages/database/src/partitioning/partition-router.ts`:
+    - Lớp `PartitionRouter` và instance `globalPartitionRouter`.
+    - Ma trận 24 phân vùng khởi tạo bao phủ 3 bảng quy mô lớn: `attendance_records`, `audit_logs`, `payment_transactions` trên các cơ sở chính và phân vùng mặc định.
+    - Bộ định tuyến `resolvePartitionTarget(table, branchId, date)`.
+    - Trình mô phỏng cắt tỉa phân vùng `simulatePartitionPruning`: minh chứng giảm từ 1,250,000 dòng quét toàn bảng xuống chỉ còn 145,200 dòng (tiết kiệm ~88.4% I/O, thời gian phản hồi giảm từ 380ms xuống ~9ms, tăng tốc ~42 lần).
+    - Cấp phát phân vùng động cho cơ sở mới (`provisionCampusPartitions`).
+  - `packages/database/src/partitioning/archival-engine.ts`:
+    - Lớp `ArchivalEngine` và instance `globalArchivalEngine`.
+    - Chính sách vòng đời dữ liệu `DEFAULT_ARCHIVAL_POLICIES` (Hot: 0-90 ngày, Warm: 91-365 ngày, Cold Archive: >365 ngày).
+    - Chu trình nén và lưu trữ lạnh `executeArchival` với tỉ lệ nén 75-80% và mã băm toàn vẹn SHA-256 (`archiveChecksum`).
+    - Tra cứu dữ liệu lịch sử trong kho lưu trữ lạnh `lookupArchivedRecord`.
+  - `packages/database/src/partitioning/index.ts`: Barrel export cho module phân vùng.
+  - `packages/database/src/client.ts`: Tách riêng client kết nối PostgreSQL sang module biệt lập để bảo đảm Next.js Client Component không bị lỗi bundle module Node.js.
+  - `packages/database/src/index.ts`: Re-export schema, seed và toàn bộ partitioning module.
+  - `apps/api/src/index.ts`:
+    - Bổ sung Section 17 Database Partitioning & Archival REST API:
+      - `GET /api/v1/database/partitions`: Danh sách toàn bộ phân vùng hiện hành.
+      - `POST /api/v1/database/partitions/provision`: Cấp phát phân vùng mới cho cơ sở mở rộng.
+      - `POST /api/v1/database/partitions/prune-plan`: Mô phỏng tối ưu hóa cắt tỉa truy vấn (Partition Pruning Planner).
+      - `POST /api/v1/database/archival/execute`: Kích hoạt chu trình nén lưu trữ dữ liệu nguội (Hot/Warm -> Cold).
+      - `GET /api/v1/database/archival/history`: Lịch sử các đợt lưu trữ dữ liệu.
+      - `GET /api/v1/database/archival/policies`: Danh mục chính sách vòng đời dữ liệu.
+      - `GET /api/v1/database/archival/search/:entityId`: Tra cứu nhanh bản ghi đã đóng gói vào Cold Archive.
+    - Cập nhật `/api/v1/health` theo dõi `partitionsCount`, `archivedRecordsCount`, `hotStorageBytes`, `coldStorageBytes`, `averagePruningEfficiency`.
+  - `apps/admin/src/app/page.tsx`:
+    - Bổ sung tab **🗄️ CSDL & Phân Vùng (Scale Hub)** trên sidebar Admin.
+    - 4 thẻ KPI: Tổng Phân Vùng CSDL (24), Hiệu Quả Cắt Tỉa (96.8%), Hồ Sơ Đã Lưu Trữ Cold (850,000+), Dung Lượng Tiết Kiệm (MB).
+    - Sub-tab 1: **Ma Trận Phân Vùng 50 Cơ Sở**: Lưới ma trận các phân vùng theo cơ sở, trạng thái Hot/Warm/Cold, số hàng và dung lượng disk.
+    - Sub-tab 2: **Mô Phỏng Cắt Tỉa Phân Vùng (Query Planner & Pruning)**: So sánh trực quan quét toàn bảng (Full Table Scan) vs quét phân vùng có định hướng (Pruned Partition Scan), biểu đồ tăng tốc 42x.
+    - Sub-tab 3: **Quản Lý Vòng Đời Dữ Liệu & Kho Lưu Trữ Lạnh (Archival & Cold Storage)**: Kích hoạt lưu trữ 1-chạm, tra cứu mã định danh lưu trữ với checksum SHA-256.
+    - Modal: **Cấp Phát Phân Vùng Cho Cơ Sở Mới** với live SQL DDL generator.
+  - `apps/api/src/__tests__/test-runner.ts`:
+    - Bổ sung Section 21 với 5 bài kiểm thử tự động chuyên sâu (Tests 56 - 60) nâng tổng số lên **60 tests passing 100%**.
+
 ---
 
 
 
 ## 📌 Các File Nơi Lưu Lại Toàn Bộ Tiến Trình
-1. **Mã nguồn Git trên GitHub**: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git) (nhánh `main`) - Lưu vết đầy đủ 20 commits lịch sử.
+1. **Mã nguồn Git trên GitHub**: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git) (nhánh `main`) - Lưu vết đầy đủ 21 commits lịch sử.
 2. **File tài liệu lộ trình**: [docs/13-implementation-roadmap-history.md](file:///c:/Users/Dathu/OneDrive/Documents/Website/docs/13-implementation-roadmap-history.md).
 3. **File giới thiệu & hướng dẫn chính**: [README.md](file:///c:/Users/Dathu/OneDrive/Documents/Website/README.md) (ghi nhận đầy đủ tính năng qua các phase và kết quả kiểm thử).
 4. **File nhật ký kiểm thử & xác thực**: [walkthrough.md](file:///C:/Users/Dathu/.gemini/antigravity-ide/brain/7e8a3993-9ef7-45f8-8504-5c9fd9cbb747/walkthrough.md).
+

@@ -59,6 +59,19 @@ import {
   canParentAccessStudent,
   getStudentAcademicSummary,
 } from '@school-cms/portal';
+import {
+  PartitionDdlGenerator,
+  PartitionRouter,
+  globalPartitionRouter,
+  ArchivalEngine,
+  globalArchivalEngine,
+  ProvisionPartitionRequestSchema,
+  PrunePlanRequestSchema,
+  ExecuteArchivalRequestSchema,
+  DATA_TIER_LABELS,
+  INITIAL_PARTITIONS,
+  DEFAULT_ARCHIVAL_POLICIES,
+} from '@school-cms/database';
 import '@school-cms/blocks';
 import {
   StatisticsSchema,
@@ -2105,6 +2118,232 @@ async function runTestSuite() {
     assert.strictEqual(hasPermission(parentUser, 'system:manage'), false);
     assert.strictEqual(hasPermission(parentUser, 'pages:publish'), false);
     assert.strictEqual(hasPermission(parentUser, 'theme:manage'), false);
+  });
+
+  console.log('\n--- 21. Database Partitioning, Multi-Campus Sharding & Data Lifecycle Archival Engine ---');
+
+  it('PostgreSQL 16 Declarative Partitioning DDL Generation Engine (LIST, RANGE, DEFAULT, and Zero-Downtime Detach)', () => {
+    // 1. Parent Partitioned Table DDL (LIST by branch_id)
+    const listParentDdl = PartitionDdlGenerator.generateCreateParentTable({
+      tableName: 'attendance_records',
+      strategy: 'LIST',
+      keyColumn: 'branch_id',
+      columnsDdl: [
+        'id VARCHAR(36) NOT NULL',
+        'student_id VARCHAR(36) NOT NULL',
+        'branch_id VARCHAR(36) NOT NULL',
+        'date DATE NOT NULL',
+        'status VARCHAR(20) NOT NULL',
+        'deleted_at TIMESTAMP WITH TIME ZONE',
+      ],
+      indexesDdl: ['CREATE INDEX idx_att_student ON attendance_records (student_id)'],
+    });
+    assert.ok(listParentDdl.includes('CREATE TABLE IF NOT EXISTS attendance_records'));
+    assert.ok(listParentDdl.includes('PARTITION BY LIST (branch_id)'));
+    assert.ok(listParentDdl.includes('idx_att_student'));
+
+    // 2. Child LIST Partition for Campus Biên Hòa
+    const bienHoaListDdl = PartitionDdlGenerator.generateCreateListPartition({
+      parentTable: 'attendance_records',
+      partitionName: 'attendance_records_bien_hoa',
+      branchValues: ['branch-bh-01'],
+    });
+    assert.ok(bienHoaListDdl.includes('CREATE TABLE IF NOT EXISTS attendance_records_bien_hoa PARTITION OF attendance_records'));
+    assert.ok(bienHoaListDdl.includes("FOR VALUES IN ('branch-bh-01')"));
+
+    // 3. Child RANGE Partition for Quarterly Audit Logs
+    const rangeQ3Ddl = PartitionDdlGenerator.generateCreateRangePartition({
+      parentTable: 'audit_logs',
+      partitionName: 'audit_logs_2026_q3',
+      startDate: '2026-07-01',
+      endDate: '2026-10-01',
+    });
+    assert.ok(rangeQ3Ddl.includes('CREATE TABLE IF NOT EXISTS audit_logs_2026_q3 PARTITION OF audit_logs'));
+    assert.ok(rangeQ3Ddl.includes("FOR VALUES FROM ('2026-07-01') TO ('2026-10-01')"));
+
+    // 4. Default Catch-all Partition
+    const defaultDdl = PartitionDdlGenerator.generateCreateDefaultPartition({
+      parentTable: 'attendance_records',
+      partitionName: 'attendance_records_default',
+    });
+    assert.ok(defaultDdl.includes('CREATE TABLE IF NOT EXISTS attendance_records_default PARTITION OF attendance_records DEFAULT;'));
+
+    // 5. Zero-Downtime Detach Partition (CONCURRENTLY per PostgreSQL 16)
+    const detachDdl = PartitionDdlGenerator.generateDetachPartition({
+      parentTable: 'attendance_records',
+      partitionName: 'attendance_records_2023_archive',
+      concurrently: true,
+    });
+    assert.ok(detachDdl.includes('ALTER TABLE attendance_records DETACH PARTITION attendance_records_2023_archive CONCURRENTLY;'));
+
+    // 6. Maintenance VACUUM command
+    const vacuumSql = PartitionDdlGenerator.generateMaintainPartition({
+      partitionName: 'attendance_records_bien_hoa',
+      freeze: true,
+    });
+    assert.ok(vacuumSql.includes('VACUUM (ANALYZE, FREEZE) attendance_records_bien_hoa;'));
+  });
+
+  it('Partition Router & Multi-Campus Shard Resolution Precision (LIST, RANGE, and Default Fallback)', () => {
+    const router = new PartitionRouter();
+
+    // 1. Resolve LIST partition by branchId
+    const resBienHoa = router.resolvePartitionTarget('attendance_records', { branchId: 'branch-bh-01' });
+    assert.strictEqual(resBienHoa.targetPartition, 'attendance_records_bien_hoa');
+    assert.strictEqual(resBienHoa.isDefaultFallback, false);
+    assert.strictEqual(resBienHoa.tier, 'HOT');
+
+    const resThuDuc = router.resolvePartitionTarget('attendance_records', { branchId: 'branch-td-02' });
+    assert.strictEqual(resThuDuc.targetPartition, 'attendance_records_thu_duc');
+    assert.strictEqual(resThuDuc.isDefaultFallback, false);
+
+    // 2. Resolve unknown branch -> Falls back to DEFAULT partition
+    const resUnknown = router.resolvePartitionTarget('attendance_records', { branchId: 'branch-unknown-99' });
+    assert.strictEqual(resUnknown.targetPartition, 'attendance_records_default');
+    assert.strictEqual(resUnknown.isDefaultFallback, true);
+
+    // 3. Resolve RANGE partition by date
+    const resQ3 = router.resolvePartitionTarget('audit_logs', { timestamp: '2026-08-15' });
+    assert.strictEqual(resQ3.targetPartition, 'audit_logs_2026_q3');
+    assert.strictEqual(resQ3.tier, 'HOT');
+
+    const resQ1Warm = router.resolvePartitionTarget('audit_logs', { timestamp: '2026-02-10' });
+    assert.strictEqual(resQ1Warm.targetPartition, 'audit_logs_2026_q1');
+    assert.strictEqual(resQ1Warm.tier, 'WARM');
+
+    // 4. List partitions filtered by tier
+    const hotPartitions = router.listPartitions('attendance_records', 'HOT');
+    assert.ok(hotPartitions.length >= 6);
+    for (const p of hotPartitions) {
+      assert.strictEqual(p.tier, 'HOT');
+    }
+  });
+
+  it('Partition Pruning Query Planner Simulation & Execution Acceleration (90%+ Scan Reduction)', () => {
+    const router = new PartitionRouter();
+
+    // 1. Simulate query for single campus Biên Hòa
+    const simulation = router.simulatePartitionPruning({
+      targetTable: 'attendance_records',
+      branchId: 'branch-bh-01',
+    });
+
+    assert.strictEqual(simulation.targetTable, 'attendance_records');
+    assert.ok(simulation.query.includes("branch_id = 'branch-bh-01'"));
+
+    // 2. Unpartitioned execution plan metrics (sequential full table scan)
+    assert.strictEqual(simulation.unpartitionedExecution.planType, 'Seq Scan (Full Table Scan)');
+    assert.ok(simulation.unpartitionedExecution.totalRowsScanned >= 600000);
+    assert.ok(simulation.unpartitionedExecution.executionTimeMs >= 100);
+
+    // 3. Pruned partition execution plan metrics (index scan on partition)
+    assert.strictEqual(simulation.prunedPartitionExecution.planType, 'Index Scan on Partition (Partition Pruning)');
+    assert.deepStrictEqual(simulation.prunedPartitionExecution.targetedPartitions, ['attendance_records_bien_hoa']);
+    assert.ok(simulation.prunedPartitionExecution.prunedPartitionsCount >= 5);
+    assert.strictEqual(simulation.prunedPartitionExecution.totalRowsScanned, 145200);
+
+    // 4. Optimization factors verification
+    assert.ok(simulation.prunedPartitionExecution.scanReductionPercentage >= 75.0, 'Scan reduction must be >75%');
+    assert.ok(simulation.prunedPartitionExecution.speedupFactor >= 5.0, 'Speedup must be at least 5x faster');
+    assert.ok(simulation.prunedPartitionExecution.executionTimeMs <= 25, 'Pruned scan must execute under 25ms');
+    assert.ok(simulation.explanation.includes('Partition Pruning'));
+  });
+
+  it('Data Lifecycle Multi-Tier Archival Engine (Hot -> Warm -> Cold Migration & Compression)', () => {
+    const engine = new ArchivalEngine();
+
+    // 1. List default retention policies
+    const policies = engine.listPolicies();
+    assert.ok(policies.length >= 4);
+    assert.ok(policies.some(p => p.id === 'pol-attendance-cold'));
+    assert.ok(policies.some(p => p.id === 'pol-audit-logs'));
+
+    // 2. Execute archival cycle
+    const initialHistoryCount = engine.listHistory().length;
+    const archivalJob = engine.executeArchival({
+      targetTable: 'attendance_records',
+      cutoffDays: 180,
+      targetTier: 'COLD',
+    });
+
+    assert.ok(archivalJob.id.startsWith('job-arch-'));
+    assert.strictEqual(archivalJob.sourceTable, 'attendance_records');
+    assert.strictEqual(archivalJob.targetTier, 'COLD');
+    assert.ok(archivalJob.recordsMigrated > 0);
+    assert.ok(archivalJob.compressedSizeBytes < archivalJob.originalSizeBytes);
+    assert.ok(archivalJob.bytesSaved > 0);
+    assert.ok(archivalJob.compressionRatio >= 60.0);
+    assert.strictEqual(archivalJob.status, 'SUCCESS');
+    assert.strictEqual(archivalJob.checksumSha256.length, 64, 'Must generate 64-char cryptographic checksum for compliance');
+
+    assert.strictEqual(engine.listHistory().length, initialHistoryCount + 1);
+
+    // 3. Cold archive catalog lookup
+    const foundRecord = engine.lookupArchivedRecord('att-hist-2023-01');
+    assert.ok(foundRecord, 'Must retrieve archived record by ID without full table decompress');
+    assert.strictEqual(foundRecord?.entityId, 'att-hist-2023-01');
+    assert.strictEqual(foundRecord?.entityType, 'ATTENDANCE');
+    assert.strictEqual(foundRecord?.archivePartition, 'attendance_records_2023_2024_archive');
+    assert.strictEqual(foundRecord?.dataPayload.archivalTier, 'COLD');
+
+    // 4. Archival summary metrics
+    const summary = engine.getArchivalSummary();
+    assert.ok(summary.totalRecordsArchived > 800000);
+    assert.ok(summary.totalBytesSaved > 100000000);
+    assert.ok(summary.avgCompressionRatio >= 70.0);
+  });
+
+  it('Database Partitioning & Archival REST API Validation & Dynamic Campus Scaling', () => {
+    // 1. Validate request schemas
+    const validProvision = {
+      tableName: 'attendance_records',
+      branchId: 'branch-nt-07',
+      branchName: 'Alpha School - Cơ sở Nha Trang',
+      branchCode: 'NHA_TRANG',
+      strategy: 'LIST' as const,
+    };
+    const parsedProv = ProvisionPartitionRequestSchema.parse(validProvision);
+    assert.strictEqual(parsedProv.branchId, 'branch-nt-07');
+
+    const validPrunePlan = {
+      targetTable: 'attendance_records',
+      branchId: 'branch-bh-01',
+    };
+    const parsedPlan = PrunePlanRequestSchema.parse(validPrunePlan);
+    assert.strictEqual(parsedPlan.targetTable, 'attendance_records');
+
+    const validArchiveReq = {
+      targetTable: 'attendance_records',
+      cutoffDays: 180,
+      targetTier: 'COLD' as const,
+    };
+    const parsedArch = ExecuteArchivalRequestSchema.parse(validArchiveReq);
+    assert.strictEqual(parsedArch.cutoffDays, 180);
+
+    // 2. Dynamically provision a new campus partition (Nha Trang)
+    const router = new PartitionRouter();
+    const initialPartCount = router.listPartitions().length;
+    const provisionResult = router.provisionCampusPartitions(validProvision);
+
+    assert.ok(provisionResult.createdPartition.partitionName.includes('nha_trang'));
+    assert.strictEqual(provisionResult.createdPartition.branchId, 'branch-nt-07');
+    assert.strictEqual(provisionResult.createdPartition.tier, 'HOT');
+    assert.ok(provisionResult.ddlSql.includes('PARTITION OF attendance_records'));
+    assert.strictEqual(router.listPartitions().length, initialPartCount + 1);
+
+    // 3. Verify routing immediately works for newly provisioned campus
+    const routedNhaTrang = router.resolvePartitionTarget('attendance_records', { branchId: 'branch-nt-07' });
+    assert.strictEqual(routedNhaTrang.targetPartition, provisionResult.createdPartition.partitionName);
+    assert.strictEqual(routedNhaTrang.isDefaultFallback, false);
+
+    // 4. Verify aggregated partition statistics
+    const stats = router.getPartitionStats();
+    assert.ok(stats.totalPartitions >= 14);
+    assert.ok(stats.activePartitions >= 13);
+    assert.ok(stats.hotStorageBytes > 0);
+    assert.ok(stats.warmStorageBytes > 0);
+    assert.ok(stats.coldStorageBytes > 0);
+    assert.strictEqual(stats.campusesSupportedCount, 50);
   });
 
   console.log('\n====================================================');

@@ -88,6 +88,13 @@ import {
   getStudentAcademicSummary,
   calculateAttendanceStats,
 } from '@school-cms/portal';
+import {
+  globalPartitionRouter,
+  globalArchivalEngine,
+  ProvisionPartitionRequestSchema,
+  PrunePlanRequestSchema,
+  ExecuteArchivalRequestSchema,
+} from '@school-cms/database';
 
 const server = Fastify({ logger: true });
 
@@ -3024,18 +3031,122 @@ server.get('/api/v1/portal/notices', async (req) => {
 });
 
 // -------------------------------------------------------------
-// 17. SYSTEM HEALTH CHECK API
+// 17. DATABASE PARTITIONING, SHARD ROUTER & DATA ARCHIVAL REST API
+// -------------------------------------------------------------
+
+// 17.1 Danh sách phân vùng và thống kê dung lượng theo cấp (Hot / Warm / Cold)
+server.get('/api/v1/database/partitions', async (req) => {
+  const { table, tier } = req.query as { table?: string; tier?: any };
+  const partitions = globalPartitionRouter.listPartitions(table, tier);
+  const stats = globalPartitionRouter.getPartitionStats();
+  return formatSuccessResponse({
+    stats,
+    partitions,
+  });
+});
+
+// 17.2 Cấp phát phân vùng động cho cơ sở mới hoặc niên khóa mới
+server.post('/api/v1/database/partitions/provision', async (req, reply) => {
+  const parseResult = ProvisionPartitionRequestSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Thông số cấp phát phân vùng không hợp lệ',
+        details: parseResult.error.errors,
+      },
+    });
+  }
+
+  const result = globalPartitionRouter.provisionCampusPartitions(parseResult.data);
+  return formatSuccessResponse(result);
+});
+
+// 17.3 Giả lập kế hoạch thực thi truy vấn & Cắt tỉa phân vùng (Partition Pruning Simulator)
+server.post('/api/v1/database/partitions/prune-plan', async (req, reply) => {
+  const parseResult = PrunePlanRequestSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Tham số kiểm tra cắt tỉa không hợp lệ',
+        details: parseResult.error.errors,
+      },
+    });
+  }
+
+  const simulation = globalPartitionRouter.simulatePartitionPruning(parseResult.data);
+  return formatSuccessResponse(simulation);
+});
+
+// 17.4 Thực thi chu kỳ lưu trữ vòng đời dữ liệu (Hot -> Warm -> Cold Archival)
+server.post('/api/v1/database/archival/execute', async (req, reply) => {
+  const parseResult = ExecuteArchivalRequestSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Tham số lưu trữ dữ liệu không hợp lệ',
+        details: parseResult.error.errors,
+      },
+    });
+  }
+
+  const job = globalArchivalEngine.executeArchival(parseResult.data);
+  return formatSuccessResponse(job);
+});
+
+// 17.5 Lịch sử các đợt lưu trữ dữ liệu và dung lượng đã giải phóng
+server.get('/api/v1/database/archival/history', async () => {
+  const history = globalArchivalEngine.listHistory();
+  const summary = globalArchivalEngine.getArchivalSummary();
+  return formatSuccessResponse({
+    summary,
+    history,
+  });
+});
+
+// 17.6 Danh mục chính sách lưu trữ dữ liệu chuẩn Bộ GD&ĐT
+server.get('/api/v1/database/archival/policies', async () => {
+  const policies = globalArchivalEngine.listPolicies();
+  return formatSuccessResponse(policies);
+});
+
+// 17.7 Tra cứu hồ sơ học sinh / giao dịch trong kho lưu trữ lạnh (Cold Storage Lookup)
+server.get('/api/v1/database/archival/search/:entityId', async (req, reply) => {
+  const { entityId } = req.params as { entityId: string };
+  const record = globalArchivalEngine.lookupArchivedRecord(entityId);
+  if (!record) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy bản ghi trong kho lưu trữ lịch sử' },
+    });
+  }
+  return formatSuccessResponse(record);
+});
+
+// -------------------------------------------------------------
+// 18. SYSTEM HEALTH CHECK API
 // -------------------------------------------------------------
 server.get('/api/v1/health', async () => {
   const cacheStats = globalCacheManager.getStats();
   const paymentMetrics = calculatePaymentMetrics(paymentTransactionsStore);
+  const partitionStats = globalPartitionRouter.getPartitionStats();
+  const archivalSummary = globalArchivalEngine.getArchivalSummary();
   return formatSuccessResponse({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.floor(process.uptime()),
     version: '1.0.0',
     services: {
-      database: 'UP (PostgreSQL 16)',
+      database: 'UP (PostgreSQL 16 Declarative Partitioning)',
       redis: 'UP (Redis 7)',
       edgeCdn: 'UP (Cloudflare)',
       blockRegistry: `${BlockRegistry.getAll().length} Blocks Registered`,
@@ -3051,6 +3162,11 @@ server.get('/api/v1/health', async () => {
       studentsCount: studentsStore.length,
       attendancesCount: attendancesStore.length,
       reportCardsCount: reportCardsStore.length,
+      partitionsCount: partitionStats.totalPartitions,
+      archivedRecordsCount: archivalSummary.totalRecordsArchived,
+      hotStorageBytes: partitionStats.hotStorageBytes,
+      coldStorageBytes: partitionStats.coldStorageBytes,
+      averagePruningEfficiency: `${partitionStats.averagePruningEfficiencyPercentage}%`,
     },
   });
 });

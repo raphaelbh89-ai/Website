@@ -32,6 +32,9 @@ importers:
       '@school-cms/cms':
         specifier: workspace:*
         version: link:../../packages/cms
+      '@school-cms/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@school-cms/payment':
         specifier: workspace:*
         version: link:../../packages/payment
@@ -285,6 +288,9 @@ importers:
       postgres:
         specifier: ^3.4.4
         version: 3.4.9
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       drizzle-kit:
         specifier: ^0.24.2

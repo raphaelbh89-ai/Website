@@ -21,9 +21,36 @@ interface FormFieldItem {
   options?: string[];
 }
 
+interface LeadItem {
+  id: string;
+  parentName: string;
+  phone: string;
+  email: string;
+  studentName: string;
+  grade: string;
+  branch: string;
+  branchId?: string;
+  date: string;
+  status: 'Mới' | 'Đang tư vấn' | 'Đã hẹn tham quan' | 'Đã nhập học' | 'Spam';
+  notes: Array<{ text: string; author: string; date: string }>;
+}
+
+interface AuditItem {
+  id: string;
+  timestamp: string;
+  userName: string;
+  userRole: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'PUBLISH' | 'STATUS_CHANGE' | 'EXPORT';
+  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'THEME' | 'FORM';
+  entityTitle: string;
+  details?: string;
+}
+
 export default function AdminDashboard() {
+  // Current user role switcher for testing RBAC
+  const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'audit'>('pages');
 
   // Page state
   const [blocks, setBlocks] = useState<BlockItem[]>([
@@ -89,11 +116,70 @@ export default function AdminDashboard() {
     { id: 'art-003', title: 'Hội Thảo Hướng Nghiệp & Săn Học Bổng Đại Học Top 100 Thế Giới', category: 'Tuyển sinh', branch: 'Toàn hệ thống', author: 'Phòng Tuyển Sinh', date: '28/08/2026', status: 'PUBLISHED' },
   ]);
 
-  const [leads, setLeads] = useState([
-    { id: 'lead-001', parentName: 'Nguyễn Văn An', phone: '0912 345 678', email: 'an.nguyen@example.com', studentName: 'Nguyễn Gia Hân', grade: 'Lớp 1', branch: 'Cơ sở Biên Hòa', date: '05/09/2026 14:30', status: 'Mới' },
-    { id: 'lead-002', parentName: 'Trần Thị Mai', phone: '0988 765 432', email: 'mai.tran@example.com', studentName: 'Trần Minh Khang', grade: 'Mầm non 4 tuổi', branch: 'Cơ sở TP. Thủ Đức', date: '05/09/2026 11:15', status: 'Đang tư vấn' },
-    { id: 'lead-003', parentName: 'Lê Hoàng Long', phone: '0903 112 233', email: 'long.le@example.com', studentName: 'Lê Bảo Anh', grade: 'Lớp 6 (Cambridge)', branch: 'Cơ sở Biên Hòa', date: '04/09/2026 16:45', status: 'Đã hẹn tham quan' },
+  // Lead CRM state
+  const [leads, setLeads] = useState<LeadItem[]>([
+    {
+      id: 'lead-001',
+      parentName: 'Nguyễn Văn An',
+      phone: '0912 345 678',
+      email: 'an.nguyen@example.com',
+      studentName: 'Nguyễn Gia Hân',
+      grade: 'Lớp 1',
+      branch: 'Cơ sở Biên Hòa',
+      branchId: 'b-001',
+      date: '05/09/2026 14:30',
+      status: 'Mới',
+      notes: [{ text: 'Tiếp nhận qua Form trực tuyến Landing page', author: 'Hệ thống', date: '05/09/2026 14:30' }],
+    },
+    {
+      id: 'lead-002',
+      parentName: 'Trần Thị Mai',
+      phone: '0988 765 432',
+      email: 'mai.tran@example.com',
+      studentName: 'Trần Minh Khang',
+      grade: 'Mầm non 4 tuổi',
+      branch: 'Cơ sở TP. Thủ Đức',
+      branchId: 'b-002',
+      date: '05/09/2026 11:15',
+      status: 'Đang tư vấn',
+      notes: [{ text: 'Đã gọi điện lần 1, phụ huynh hẹn nghe máy lại sau 17h', author: 'Chuyên viên Thu Hà', date: '05/09/2026 11:45' }],
+    },
+    {
+      id: 'lead-003',
+      parentName: 'Lê Hoàng Long',
+      phone: '0903 112 233',
+      email: 'long.le@example.com',
+      studentName: 'Lê Bảo Anh',
+      grade: 'Lớp 6 (Cambridge)',
+      branch: 'Cơ sở Biên Hòa',
+      branchId: 'b-001',
+      date: '04/09/2026 16:45',
+      status: 'Đã hẹn tham quan',
+      notes: [{ text: 'Đã gửi thư mời tham quan ngày 10/09/2026', author: 'Chuyên viên Tuấn Kiệt', date: '04/09/2026 17:00' }],
+    },
   ]);
+
+  const [selectedLead, setSelectedLead] = useState<LeadItem | null>(null);
+  const [newNoteText, setNewNoteText] = useState('');
+
+  // Audit Logs state
+  const [auditLogs, setAuditLogs] = useState<AuditItem[]>([
+    { id: 'log-1', timestamp: '05/09/2026 14:35', userName: 'Super Admin', userRole: 'SUPER_ADMIN', action: 'PUBLISH', entityType: 'PAGE', entityTitle: 'Trang Chủ Alpha School', details: 'Xuất bản thành công phiên bản v1' },
+    { id: 'log-2', timestamp: '05/09/2026 12:10', userName: 'Campus Director - Biên Hòa', userRole: 'CAMPUS_DIRECTOR', action: 'UPDATE', entityType: 'LEAD', entityTitle: 'Hồ sơ Lê Hoàng Long', details: 'Chuyển trạng thái sang [Đã hẹn tham quan]' },
+    { id: 'log-3', timestamp: '05/09/2026 09:20', userName: 'Super Admin', userRole: 'SUPER_ADMIN', action: 'UPDATE', entityType: 'THEME', entityTitle: 'Design Tokens', details: 'Cập nhật màu chủ đạo #047857' },
+  ]);
+
+  const addAuditLog = (item: Omit<AuditItem, 'id' | 'timestamp' | 'userName' | 'userRole'>) => {
+    const actorName = currentRole === 'SUPER_ADMIN' ? 'Super Admin' : currentRole === 'CAMPUS_DIRECTOR' ? 'Campus Director - Biên Hòa' : 'Admissions Officer';
+    const newL: AuditItem = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+      userName: actorName,
+      userRole: currentRole,
+      ...item,
+    };
+    setAuditLogs([newL, ...auditLogs]);
+  };
 
   // Theme Customizer state
   const [themeTokens, setThemeTokens] = useState({
@@ -106,12 +192,6 @@ export default function AdminDashboard() {
   });
 
   // Dynamic Form Builder state
-  const [formList, setFormList] = useState([
-    { id: 'f-1', name: 'Đăng ký Tuyển sinh 2025', code: 'tuyen-sinh-2025', submissionsCount: 42 },
-    { id: 'f-2', name: 'Đăng ký Tham quan Cơ sở', code: 'tour-co-so', submissionsCount: 18 },
-    { id: 'f-3', name: 'Liên hệ & Hỏi đáp Ban Giám Hiệu', code: 'lien-he-bgh', submissionsCount: 9 },
-  ]);
-
   const [formFields, setFormFields] = useState<FormFieldItem[]>([
     { id: 'fld-1', name: 'parentName', label: 'Họ và tên Phụ huynh', type: 'text', required: true, placeholder: 'Ví dụ: Nguyễn Văn A' },
     { id: 'fld-2', name: 'phone', label: 'Số điện thoại liên hệ', type: 'tel', required: true, placeholder: '09xx xxx xxx' },
@@ -161,6 +241,7 @@ export default function AdminDashboard() {
 
     setBlocks([...blocks, newBlock]);
     setSelectedBlockId(newBlock.id);
+    addAuditLog({ action: 'UPDATE', entityType: 'PAGE', entityTitle: 'Trang Chủ', details: `Thêm block ${blockDef.name}` });
     showToast(`Đã thêm block: ${blockDef.name}`);
   };
 
@@ -169,6 +250,7 @@ export default function AdminDashboard() {
     if (selectedBlockId === id) {
       setSelectedBlockId(blocks[0]?.id || '');
     }
+    addAuditLog({ action: 'DELETE', entityType: 'PAGE', entityTitle: 'Trang Chủ', details: `Xóa block id ${id}` });
     showToast('Đã xóa block khỏi trang');
   };
 
@@ -185,6 +267,7 @@ export default function AdminDashboard() {
 
   const handlePublish = () => {
     setIsPublished(true);
+    addAuditLog({ action: 'PUBLISH', entityType: 'PAGE', entityTitle: 'Trang Chủ Alpha School', details: 'Xuất bản và đẩy Edge Cache' });
     showToast('Xuất bản thành công! Nội dung đã sẵn sàng trên toàn hệ thống.');
     setTimeout(() => setIsPublished(false), 3000);
   };
@@ -201,6 +284,7 @@ export default function AdminDashboard() {
       status: 'Hoạt động',
     };
     setBranches([...branches, newB]);
+    addAuditLog({ action: 'CREATE', entityType: 'BRANCH', entityTitle: newBranchName, details: `Mã cơ sở: ${newB.code}` });
     setNewBranchName('');
     setNewBranchAddress('');
     setNewBranchPhone('');
@@ -215,11 +299,12 @@ export default function AdminDashboard() {
       title: newArticleTitle,
       category: newArticleCategory,
       branch: newArticleBranch,
-      author: 'Super Admin',
+      author: currentRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Campus Director',
       date: new Date().toLocaleDateString('vi-VN'),
       status: 'PUBLISHED',
     };
     setArticles([newArt, ...articles]);
+    addAuditLog({ action: 'CREATE', entityType: 'ARTICLE', entityTitle: newArticleTitle, details: `Phạm vi: ${newArticleBranch}` });
     setNewArticleTitle('');
     setShowAddArticleModal(false);
     showToast('Đã xuất bản bài viết mới!');
@@ -236,6 +321,7 @@ export default function AdminDashboard() {
       placeholder: `Nhập ${newFieldLabel.toLowerCase()}...`,
     };
     setFormFields([...formFields, newF]);
+    addAuditLog({ action: 'UPDATE', entityType: 'FORM', entityTitle: 'Form Tuyển Sinh 2025', details: `Thêm trường ${newFieldLabel}` });
     setNewFieldName('');
     setNewFieldLabel('');
     showToast(`Đã thêm trường '${newFieldLabel}' vào Form!`);
@@ -244,6 +330,46 @@ export default function AdminDashboard() {
   const handleRemoveField = (id: string) => {
     setFormFields(formFields.filter(f => f.id !== id));
     showToast('Đã xóa trường khỏi Form');
+  };
+
+  const handleChangeLeadStatus = (leadId: string, newStatus: LeadItem['status']) => {
+    setLeads(leads.map(l => {
+      if (l.id === leadId) {
+        const updated = {
+          ...l,
+          status: newStatus,
+          notes: [
+            {
+              text: `Chuyển trạng thái sang [${newStatus}]`,
+              author: currentRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Admissions Officer',
+              date: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+            },
+            ...l.notes,
+          ],
+        };
+        if (selectedLead?.id === leadId) setSelectedLead(updated);
+        return updated;
+      }
+      return l;
+    }));
+    addAuditLog({ action: 'STATUS_CHANGE', entityType: 'LEAD', entityTitle: `Hồ sơ ${selectedLead?.parentName || leadId}`, details: `Chuyển trạng thái sang ${newStatus}` });
+    showToast(`Đã cập nhật trạng thái hồ sơ: ${newStatus}`);
+  };
+
+  const handleAddLeadNote = () => {
+    if (!selectedLead || !newNoteText.trim()) return;
+    const author = currentRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Admissions Officer';
+    const noteObj = {
+      text: newNoteText.trim(),
+      author,
+      date: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+    };
+    const updated = { ...selectedLead, notes: [noteObj, ...selectedLead.notes] };
+    setSelectedLead(updated);
+    setLeads(leads.map(l => l.id === selectedLead.id ? updated : l));
+    addAuditLog({ action: 'UPDATE', entityType: 'LEAD', entityTitle: `Hồ sơ ${selectedLead.parentName}`, details: `Thêm ghi chú: "${newNoteText.trim()}"` });
+    setNewNoteText('');
+    showToast('Đã ghi chú vào hồ sơ!');
   };
 
   return (
@@ -306,7 +432,7 @@ export default function AdminDashboard() {
               activeTab === 'leads' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
             }`}
           >
-            <span>🎯</span> Hồ sơ Tuyển sinh ({leads.length})
+            <span>🎯</span> CRM Tuyển sinh ({leads.length})
           </button>
           <button
             onClick={() => setActiveTab('forms')}
@@ -336,16 +462,53 @@ export default function AdminDashboard() {
           >
             <span>🖼️</span> Thư viện Media ({mediaAssets.length})
           </button>
+
+          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">
+            Bảo mật & Giám sát
+          </div>
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeTab === 'audit' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <span>🛡️</span> Nhật ký Audit Logs ({auditLogs.length})
+          </button>
         </nav>
 
-        {/* User Scope Info */}
-        <div className="p-4 border-t border-slate-800 text-xs text-slate-400 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-white font-semibold">
-            AD
+        {/* User Scope Info & RBAC Switcher */}
+        <div className="p-4 border-t border-slate-800 text-xs text-slate-400 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-white font-semibold text-[10px]">
+              {currentRole.substring(0, 2)}
+            </div>
+            <div className="flex-1 truncate">
+              <p className="font-semibold text-slate-200">
+                {currentRole === 'SUPER_ADMIN' && 'Super Administrator'}
+                {currentRole === 'CAMPUS_DIRECTOR' && 'Campus Director'}
+                {currentRole === 'ADMISSIONS_OFFICER' && 'Admissions Officer'}
+              </p>
+              <p className="text-[10px] text-emerald-400">
+                {currentRole === 'SUPER_ADMIN' ? 'Toàn quyền (Global Scope)' : 'Giới hạn phân quyền'}
+              </p>
+            </div>
           </div>
+
           <div>
-            <p className="font-semibold text-slate-200">Super Administrator</p>
-            <p>Toàn hệ thống (Global Scope)</p>
+            <label className="block text-[10px] text-slate-400 mb-1">Chuyển Role mô phỏng RBAC:</label>
+            <select
+              value={currentRole}
+              onChange={(e) => {
+                const role = e.target.value as any;
+                setCurrentRole(role);
+                showToast(`Đã chuyển sang vai trò: ${role}`);
+              }}
+              className="w-full bg-slate-800 text-slate-200 border border-slate-700 rounded px-2 py-1 text-[11px] focus:outline-none"
+            >
+              <option value="SUPER_ADMIN">👑 Super Admin</option>
+              <option value="CAMPUS_DIRECTOR">🏫 Campus Director (Biên Hòa)</option>
+              <option value="ADMISSIONS_OFFICER">🎯 Admissions Officer</option>
+            </select>
           </div>
         </div>
       </aside>
@@ -359,10 +522,11 @@ export default function AdminDashboard() {
               {activeTab === 'pages' && 'Trình Dựng Trang Trực Quan (Page Builder)'}
               {activeTab === 'branches' && 'Quản Lý Hệ Thống Cơ Sở & Chi Nhánh'}
               {activeTab === 'articles' && 'Quản Lý Bài Viết & Tin Tức Học Đường'}
-              {activeTab === 'leads' && 'Quản Lý Hồ Sơ Đăng Ký Tuyển Sinh'}
+              {activeTab === 'leads' && 'Hồ Sơ Tuyển Sinh & Phễu Chăm Sóc Phụ Huynh'}
               {activeTab === 'theme' && 'Tùy Biến Giao Diện Đa Cơ Sở (Theme Customizer)'}
               {activeTab === 'forms' && 'Trình Thiết Kế Biểu Mẫu Động (Dynamic Form Builder)'}
               {activeTab === 'media' && 'Thư Viện Tệp Tin Đa Phương Tiện (Media Asset Hub)'}
+              {activeTab === 'audit' && 'Nhật Ký Kiểm Toán & Giám Sát Hệ Thống (Audit Logs)'}
             </h2>
           </div>
 
@@ -539,12 +703,14 @@ export default function AdminDashboard() {
                   <h3 className="text-xl font-bold text-slate-900">Danh Sách Cơ Sở Giáo Dục</h3>
                   <p className="text-sm text-slate-500">Mỗi cơ sở sở hữu landing page, đội ngũ tuyển sinh và tin tức riêng biệt.</p>
                 </div>
-                <button
-                  onClick={() => setShowAddBranchModal(true)}
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2"
-                >
-                  ➕ Thêm Cơ Sở Mới
-                </button>
+                {currentRole === 'SUPER_ADMIN' && (
+                  <button
+                    onClick={() => setShowAddBranchModal(true)}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2"
+                  >
+                    ➕ Thêm Cơ Sở Mới
+                  </button>
+                )}
               </div>
 
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -647,18 +813,23 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 4: HỒ SƠ TUYỂN SINH (LEADS) */}
+        {/* TAB 4: HỒ SƠ TUYỂN SINH (LEADS & CRM WORKFLOW) */}
         {activeTab === 'leads' && (
           <div className="flex-1 p-8 overflow-y-auto">
-            <div className="max-w-6xl mx-auto">
-              <div className="flex items-center justify-between mb-6">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">Danh Sách Phụ Huynh Đăng Ký Tuyển Sinh</h3>
-                  <p className="text-sm text-slate-500">Dữ liệu nộp trực tuyến từ Landing Page và các Form nhúng.</p>
+                  <h3 className="text-xl font-bold text-slate-900">CRM Tuyển Sinh & Quản Lý Khách Hàng Tiềm Năng</h3>
+                  <p className="text-sm text-slate-500">
+                    Bấm vào từng hồ sơ để cập nhật quy trình tư vấn, lịch hẹn tham quan và ghi chú tương tác.
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => showToast('Đang xuất tệp Excel danh sách hồ sơ tuyển sinh...')}
+                    onClick={() => {
+                      addAuditLog({ action: 'EXPORT', entityType: 'LEAD', entityTitle: 'Danh sách Leads Tuyển sinh', details: 'Xuất file Excel' });
+                      showToast('Đang xuất tệp Excel danh sách hồ sơ tuyển sinh...');
+                    }}
                     className="px-4 py-2 border border-slate-300 hover:bg-slate-50 rounded-lg text-sm font-medium text-slate-700 flex items-center gap-2"
                   >
                     📥 Xuất Excel
@@ -666,6 +837,22 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Status Pipeline Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Hồ Sơ Mới', count: leads.filter(l => l.status === 'Mới').length, color: 'bg-blue-50 border-blue-200 text-blue-800' },
+                  { label: 'Đang Tư Vấn', count: leads.filter(l => l.status === 'Đang tư vấn').length, color: 'bg-amber-50 border-amber-200 text-amber-800' },
+                  { label: 'Đã Hẹn Tham Quan', count: leads.filter(l => l.status === 'Đã hẹn tham quan').length, color: 'bg-purple-50 border-purple-200 text-purple-800' },
+                  { label: 'Đã Nhập Học', count: leads.filter(l => l.status === 'Đã nhập học').length, color: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
+                ].map((s, idx) => (
+                  <div key={idx} className={`p-4 rounded-xl border ${s.color} flex justify-between items-center shadow-sm`}>
+                    <span className="text-sm font-semibold">{s.label}</span>
+                    <span className="text-2xl font-black">{s.count}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Leads Table */}
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <table className="w-full text-left text-sm text-slate-600">
                   <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
@@ -674,14 +861,18 @@ export default function AdminDashboard() {
                       <th className="px-6 py-4">Số Điện Thoại</th>
                       <th className="px-6 py-4">Học Sinh</th>
                       <th className="px-6 py-4">Cấp Lớp</th>
-                      <th className="px-6 py-4">Cơ Sở Đăng Ký</th>
-                      <th className="px-6 py-4">Thời Gian</th>
+                      <th className="px-6 py-4">Cơ Sở</th>
                       <th className="px-6 py-4">Trạng Thái</th>
+                      <th className="px-6 py-4 text-right">Chi Tiết CRM</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {leads.map((l) => (
-                      <tr key={l.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr
+                        key={l.id}
+                        onClick={() => setSelectedLead(l)}
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                      >
                         <td className="px-6 py-4 font-semibold text-slate-900">
                           <div>{l.parentName}</div>
                           <div className="text-xs text-slate-400">{l.email}</div>
@@ -694,7 +885,6 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="px-6 py-4 font-medium text-xs">{l.branch}</td>
-                        <td className="px-6 py-4 text-slate-400 text-xs">{l.date}</td>
                         <td className="px-6 py-4">
                           <span
                             className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -702,11 +892,24 @@ export default function AdminDashboard() {
                                 ? 'bg-blue-100 text-blue-800'
                                 : l.status === 'Đang tư vấn'
                                 ? 'bg-amber-100 text-amber-800'
+                                : l.status === 'Đã hẹn tham quan'
+                                ? 'bg-purple-100 text-purple-800'
                                 : 'bg-emerald-100 text-emerald-800'
                             }`}
                           >
                             {l.status}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLead(l);
+                            }}
+                            className="text-xs font-semibold text-emerald-700 hover:underline px-3 py-1 bg-emerald-50 rounded-lg"
+                          >
+                            Mở Hồ Sơ ➔
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -729,7 +932,10 @@ export default function AdminDashboard() {
                   </p>
                 </div>
                 <button
-                  onClick={() => showToast('Đã lưu và đồng bộ Design Tokens cho toàn hệ thống!')}
+                  onClick={() => {
+                    addAuditLog({ action: 'UPDATE', entityType: 'THEME', entityTitle: 'Global Brand Tokens', details: `Primary: ${themeTokens.primaryColor}` });
+                    showToast('Đã lưu và đồng bộ Design Tokens cho toàn hệ thống!');
+                  }}
                   className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2"
                 >
                   💾 Lưu & Áp Dụng Theme
@@ -923,7 +1129,10 @@ export default function AdminDashboard() {
                   </p>
                 </div>
                 <button
-                  onClick={() => showToast('Đã lưu cấu hình Form Schema thành công!')}
+                  onClick={() => {
+                    addAuditLog({ action: 'UPDATE', entityType: 'FORM', entityTitle: 'Form Tuyển Sinh 2025', details: 'Lưu schema form' });
+                    showToast('Đã lưu cấu hình Form Schema thành công!');
+                  }}
                   className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold shadow-sm"
                 >
                   💾 Lưu Form Schema
@@ -1111,6 +1320,72 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* TAB 8: AUDIT LOGS (GIÁM SÁT HỆ THỐNG) */}
+        {activeTab === 'audit' && (
+          <div className="flex-1 p-8 overflow-y-auto">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Nhật Ký Kiểm Toán Toàn Hệ Thống (Audit Logs)</h3>
+                  <p className="text-sm text-slate-500">
+                    Mọi hành động tạo mới, cập nhật, xuất bản hoặc thay đổi trạng thái đều được ghi nhận phục vụ bảo mật & tuân thủ.
+                  </p>
+                </div>
+                <span className="px-3 py-1 bg-slate-200 text-slate-700 rounded-full text-xs font-mono font-semibold">
+                  {auditLogs.length} bản ghi
+                </span>
+              </div>
+
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4">Thời Gian</th>
+                      <th className="px-6 py-4">Người Thực Hiện</th>
+                      <th className="px-6 py-4">Vai Trò (Role)</th>
+                      <th className="px-6 py-4">Hành Động</th>
+                      <th className="px-6 py-4">Thực Thể</th>
+                      <th className="px-6 py-4">Chi Tiết</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono text-xs">
+                    {auditLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50/80">
+                        <td className="px-6 py-4 text-slate-400 whitespace-nowrap">{log.timestamp}</td>
+                        <td className="px-6 py-4 font-semibold text-slate-900 font-sans">{log.userName}</td>
+                        <td className="px-6 py-4">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold">
+                            {log.userRole}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              log.action === 'CREATE'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : log.action === 'UPDATE' || log.action === 'STATUS_CHANGE'
+                                ? 'bg-amber-100 text-amber-800'
+                                : log.action === 'PUBLISH'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-sans font-medium text-slate-800">
+                          {log.entityType}: {log.entityTitle}
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 font-sans">{log.details || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL: Thêm Cơ Sở Mới */}
@@ -1221,6 +1496,123 @@ export default function AdminDashboard() {
                 className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 shadow-sm"
               >
                 Xuất Bản Ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DRAWER / MODAL: CHI TIẾT LEAD & CRM PIPELINE */}
+      {selectedLead && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-end">
+          <div className="bg-white w-full max-w-xl h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+            {/* Drawer Header */}
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div>
+                <span className="text-xs font-mono uppercase text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded">
+                  {selectedLead.id}
+                </span>
+                <h3 className="text-xl font-bold text-slate-900 mt-1">{selectedLead.parentName}</h3>
+                <p className="text-xs text-slate-500">Đăng ký ngày: {selectedLead.date}</p>
+              </div>
+              <button
+                onClick={() => setSelectedLead(null)}
+                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 flex items-center justify-center font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="p-6 flex-1 overflow-y-auto space-y-6">
+              {/* Lead Info */}
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm">
+                <div>
+                  <span className="text-xs text-slate-400 block">Số điện thoại</span>
+                  <a href={`tel:${selectedLead.phone}`} className="font-semibold text-emerald-700 hover:underline">
+                    📞 {selectedLead.phone}
+                  </a>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400 block">Email</span>
+                  <span className="font-semibold text-slate-800">{selectedLead.email}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400 block">Học sinh ứng tuyển</span>
+                  <span className="font-bold text-slate-900">{selectedLead.studentName}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400 block">Cấp lớp & Cơ sở</span>
+                  <span className="font-semibold text-slate-800">{selectedLead.grade} • {selectedLead.branch}</span>
+                </div>
+              </div>
+
+              {/* Status Workflow Selector */}
+              <div>
+                <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-3">
+                  Cập Nhật Trạng Thái Pipeline
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(['Mới', 'Đang tư vấn', 'Đã hẹn tham quan', 'Đã nhập học'] as const).map((st) => (
+                    <button
+                      key={st}
+                      onClick={() => handleChangeLeadStatus(selectedLead.id, st)}
+                      className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all ${
+                        selectedLead.status === st
+                          ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes Timeline */}
+              <div>
+                <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-3">
+                  Nhật Ký Chăm Sóc & Lịch Sử Liên Hệ ({selectedLead.notes.length})
+                </h4>
+
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Nhập ghi chú mới (vd: Phụ huynh đồng ý tham quan thứ 7)..."
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddLeadNote()}
+                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                  />
+                  <button
+                    onClick={handleAddLeadNote}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shrink-0"
+                  >
+                    Ghi Chú
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {selectedLead.notes.map((note, i) => (
+                    <div key={i} className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
+                      <div className="flex items-center justify-between text-slate-400 text-[11px]">
+                        <span className="font-semibold text-slate-700">{note.author}</span>
+                        <span>{note.date}</span>
+                      </div>
+                      <p className="text-slate-800 font-medium">{note.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Drawer Footer */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button
+                onClick={() => setSelectedLead(null)}
+                className="px-5 py-2 bg-slate-800 text-white rounded-lg text-xs font-semibold hover:bg-slate-900"
+              >
+                Đóng
               </button>
             </div>
           </div>

@@ -2,7 +2,13 @@
 
 import React, { useState } from 'react';
 import { BlockRegistry } from '@school-cms/cms';
-import { DEFAULT_TRANSLATIONS, TranslationItem } from '@school-cms/shared';
+import {
+  DEFAULT_TRANSLATIONS,
+  TranslationItem,
+  PIPELINE_STAGES,
+  getNextPipelineStatus,
+  calculatePipelineMetrics,
+} from '@school-cms/shared';
 import { ALL_PERMISSIONS, RolePermissions } from '@school-cms/auth';
 import '@school-cms/blocks';
 
@@ -283,6 +289,7 @@ export default function AdminDashboard() {
 
   const [selectedLead, setSelectedLead] = useState<LeadItem | null>(null);
   const [newNoteText, setNewNoteText] = useState('');
+  const [leadsViewMode, setLeadsViewMode] = useState<'table' | 'kanban'>('kanban');
 
   // Audit Logs state
   const [auditLogs, setAuditLogs] = useState<AuditItem[]>([
@@ -1363,15 +1370,44 @@ export default function AdminDashboard() {
         {/* TAB 4: HỒ SƠ TUYỂN SINH (LEADS & CRM WORKFLOW) */}
         {activeTab === 'leads' && (
           <div className="flex-1 p-8 overflow-y-auto">
-            <div className="max-w-6xl mx-auto space-y-6">
-              <div className="flex items-center justify-between">
+            <div className="max-w-7xl mx-auto space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">CRM Tuyển Sinh & Quản Lý Khách Hàng Tiềm Năng</h3>
-                  <p className="text-sm text-slate-500">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-xl font-bold text-slate-900">CRM Tuyển Sinh & Quản Lý Khách Hàng Tiềm Năng</h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
+                      {leads.length} Hồ sơ
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-500 mt-1">
                     Bấm vào từng hồ sơ để cập nhật quy trình tư vấn, lịch hẹn tham quan và ghi chú tương tác.
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-3">
+                  {/* View Mode Toggle */}
+                  <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
+                    <button
+                      onClick={() => setLeadsViewMode('kanban')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                        leadsViewMode === 'kanban'
+                          ? 'bg-white text-emerald-800 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>📊</span> Kanban Board
+                    </button>
+                    <button
+                      onClick={() => setLeadsViewMode('table')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                        leadsViewMode === 'table'
+                          ? 'bg-white text-emerald-800 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>📋</span> Danh Sách Bảng
+                    </button>
+                  </div>
+
                   <button
                     onClick={handleExportLeadsToCsv}
                     className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition-all"
@@ -1381,85 +1417,209 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Status Pipeline Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: 'Hồ Sơ Mới', count: leads.filter(l => l.status === 'Mới').length, color: 'bg-blue-50 border-blue-200 text-blue-800' },
-                  { label: 'Đang Tư Vấn', count: leads.filter(l => l.status === 'Đang tư vấn').length, color: 'bg-amber-50 border-amber-200 text-amber-800' },
-                  { label: 'Đã Hẹn Tham Quan', count: leads.filter(l => l.status === 'Đã hẹn tham quan').length, color: 'bg-purple-50 border-purple-200 text-purple-800' },
-                  { label: 'Đã Nhập Học', count: leads.filter(l => l.status === 'Đã nhập học').length, color: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
-                ].map((s, idx) => (
-                  <div key={idx} className={`p-4 rounded-xl border ${s.color} flex justify-between items-center shadow-sm`}>
-                    <span className="text-sm font-semibold">{s.label}</span>
-                    <span className="text-2xl font-black">{s.count}</span>
+              {/* Status Pipeline Cards & Metrics */}
+              {(() => {
+                const metrics = calculatePipelineMetrics(leads);
+                return (
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="p-4 rounded-xl border bg-slate-50 border-slate-200 flex justify-between items-center shadow-sm">
+                      <div>
+                        <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Tổng Hồ Sơ</div>
+                        <div className="text-2xl font-black text-slate-900 mt-1">{metrics.total}</div>
+                      </div>
+                      <span className="text-2xl">📋</span>
+                    </div>
+                    <div className="p-4 rounded-xl border bg-blue-50 border-blue-200 flex justify-between items-center shadow-sm">
+                      <div>
+                        <div className="text-xs font-medium text-blue-600 uppercase tracking-wider">Hồ Sơ Mới</div>
+                        <div className="text-2xl font-black text-blue-900 mt-1">{metrics.newLeads}</div>
+                      </div>
+                      <span className="text-2xl">📥</span>
+                    </div>
+                    <div className="p-4 rounded-xl border bg-amber-50 border-amber-200 flex justify-between items-center shadow-sm">
+                      <div>
+                        <div className="text-xs font-medium text-amber-600 uppercase tracking-wider">Đang Xử Lý</div>
+                        <div className="text-2xl font-black text-amber-900 mt-1">{metrics.inProgress}</div>
+                      </div>
+                      <span className="text-2xl">⚡</span>
+                    </div>
+                    <div className="p-4 rounded-xl border bg-emerald-50 border-emerald-200 flex justify-between items-center shadow-sm">
+                      <div>
+                        <div className="text-xs font-medium text-emerald-600 uppercase tracking-wider">Đã Nhập Học</div>
+                        <div className="text-2xl font-black text-emerald-900 mt-1">{metrics.enrolled}</div>
+                      </div>
+                      <span className="text-2xl">🎓</span>
+                    </div>
+                    <div className="p-4 rounded-xl border bg-indigo-50 border-indigo-200 flex justify-between items-center shadow-sm col-span-2 md:col-span-1">
+                      <div>
+                        <div className="text-xs font-medium text-indigo-600 uppercase tracking-wider">Tỷ Lệ Chốt</div>
+                        <div className="text-2xl font-black text-indigo-900 mt-1">{metrics.conversionRate}%</div>
+                      </div>
+                      <span className="text-2xl">📈</span>
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })()}
 
-              {/* Leads Table */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
-                    <tr>
-                      <th className="px-6 py-4">Phụ Huynh</th>
-                      <th className="px-6 py-4">Số Điện Thoại</th>
-                      <th className="px-6 py-4">Học Sinh</th>
-                      <th className="px-6 py-4">Cấp Lớp</th>
-                      <th className="px-6 py-4">Cơ Sở</th>
-                      <th className="px-6 py-4">Trạng Thái</th>
-                      <th className="px-6 py-4 text-right">Chi Tiết CRM</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {leads.map((l) => (
-                      <tr
-                        key={l.id}
-                        onClick={() => setSelectedLead(l)}
-                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+              {/* KANBAN BOARD VIEW */}
+              {leadsViewMode === 'kanban' ? (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-5 items-start">
+                  {PIPELINE_STAGES.map((stage) => {
+                    const stageLeads = leads.filter((l) => l.status === stage.key);
+                    return (
+                      <div
+                        key={stage.key}
+                        className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 flex flex-col min-h-[550px] shadow-sm"
                       >
-                        <td className="px-6 py-4 font-semibold text-slate-900">
-                          <div>{l.parentName}</div>
-                          <div className="text-xs text-slate-400">{l.email}</div>
-                        </td>
-                        <td className="px-6 py-4 font-mono font-medium text-emerald-700">{l.phone}</td>
-                        <td className="px-6 py-4 font-medium text-slate-800">{l.studentName}</td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold">
-                            {l.grade}
+                        {/* Column Header */}
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{stage.icon}</span>
+                            <span className="font-bold text-sm text-slate-800">{stage.label}</span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${stage.badgeColor}`}>
+                            {stageLeads.length}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 font-medium text-xs">{l.branch}</td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                              l.status === 'Mới'
-                                ? 'bg-blue-100 text-blue-800'
-                                : l.status === 'Đang tư vấn'
-                                ? 'bg-amber-100 text-amber-800'
-                                : l.status === 'Đã hẹn tham quan'
-                                ? 'bg-purple-100 text-purple-800'
-                                : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            {l.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedLead(l);
-                            }}
-                            className="text-xs font-semibold text-emerald-700 hover:underline px-3 py-1 bg-emerald-50 rounded-lg"
-                          >
-                            Mở Hồ Sơ ➔
-                          </button>
-                        </td>
+                        </div>
+
+                        {/* Cards List */}
+                        <div className="space-y-3 flex-1 overflow-y-auto">
+                          {stageLeads.length === 0 ? (
+                            <div className="text-center py-12 px-4 border border-dashed border-slate-200 rounded-xl text-xs text-slate-400">
+                              Chưa có hồ sơ ở giai đoạn này
+                            </div>
+                          ) : (
+                            stageLeads.map((l) => {
+                              const nextStatus = getNextPipelineStatus(l.status);
+                              return (
+                                <div
+                                  key={l.id}
+                                  onClick={() => setSelectedLead(l)}
+                                  className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer group"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h4 className="font-bold text-sm text-slate-900 group-hover:text-emerald-700 transition-colors">
+                                      {l.parentName}
+                                    </h4>
+                                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-semibold">
+                                      {l.grade}
+                                    </span>
+                                  </div>
+
+                                  <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                                    <span className="font-mono text-emerald-700 font-medium">{l.phone}</span>
+                                    <span>•</span>
+                                    <span>{l.studentName}</span>
+                                  </div>
+
+                                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                                    <span className="text-slate-400 text-[11px]">{l.branch}</span>
+                                    <span className="text-slate-500 text-[11px] flex items-center gap-1">
+                                      💬 {l.notes.length} ghi chú
+                                    </span>
+                                  </div>
+
+                                  {/* Quick Actions */}
+                                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedLead(l);
+                                      }}
+                                      className="text-[11px] font-medium text-slate-600 hover:text-emerald-700 hover:underline"
+                                    >
+                                      Mở CRM
+                                    </button>
+
+                                    {nextStatus && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleChangeLeadStatus(l.id, nextStatus);
+                                        }}
+                                        className="text-[11px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-1 rounded transition-colors"
+                                      >
+                                        Chuyển: {nextStatus} ➔
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* TABLE VIEW */
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <table className="w-full text-left text-sm text-slate-600">
+                    <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-4">Phụ Huynh</th>
+                        <th className="px-6 py-4">Số Điện Thoại</th>
+                        <th className="px-6 py-4">Học Sinh</th>
+                        <th className="px-6 py-4">Cấp Lớp</th>
+                        <th className="px-6 py-4">Cơ Sở</th>
+                        <th className="px-6 py-4">Trạng Thái</th>
+                        <th className="px-6 py-4 text-right">Chi Tiết CRM</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {leads.map((l) => (
+                        <tr
+                          key={l.id}
+                          onClick={() => setSelectedLead(l)}
+                          className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                        >
+                          <td className="px-6 py-4 font-semibold text-slate-900">
+                            <div>{l.parentName}</div>
+                            <div className="text-xs text-slate-400">{l.email}</div>
+                          </td>
+                          <td className="px-6 py-4 font-mono font-medium text-emerald-700">{l.phone}</td>
+                          <td className="px-6 py-4 font-medium text-slate-800">{l.studentName}</td>
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold">
+                              {l.grade}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-medium text-xs">{l.branch}</td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                l.status === 'Mới'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : l.status === 'Đang tư vấn'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : l.status === 'Đã hẹn tham quan'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {l.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedLead(l);
+                              }}
+                              className="text-xs font-semibold text-emerald-700 hover:underline px-3 py-1 bg-emerald-50 rounded-lg"
+                            >
+                              Mở Hồ Sơ ➔
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

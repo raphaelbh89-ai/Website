@@ -20,6 +20,13 @@ import {
   ALL_PERMISSIONS,
   RolePermissions,
 } from '@school-cms/auth';
+import {
+  getWebhooks,
+  createWebhook,
+  deleteWebhook,
+  getDeliveryLogs,
+  dispatchWebhookEvent,
+} from './webhook';
 
 const server = Fastify({ logger: true });
 
@@ -723,6 +730,9 @@ server.post('/api/v1/public/forms/:code/submit', async (req) => {
     entityTitle: `${submission.parentName} - ${submission.studentName}`,
   });
 
+  // Dispatch webhook event to external systems (CRM, Slack, etc.)
+  dispatchWebhookEvent('lead.created', submission);
+
   return formatSuccessResponse(submission);
 });
 
@@ -759,6 +769,9 @@ server.patch('/api/v1/submissions/:id/status', async (req, reply) => {
     entityTitle: `${lead.parentName} (${lead.studentName})`,
     details: { from: oldStatus, to: status },
   });
+
+  // Dispatch webhook event for status update
+  dispatchWebhookEvent('lead.status_updated', lead);
 
   return formatSuccessResponse(lead);
 });
@@ -1635,7 +1648,49 @@ server.get('/api/v1/health', async () => {
     menusCount: menusStore.length,
     translationsCount: translationsStore.length,
     usersCount: usersStore.length,
+    webhooksCount: getWebhooks().length,
   });
+});
+
+// 11. WEBHOOK SUBSCRIPTIONS & NOTIFICATIONS API
+server.get('/api/v1/webhooks', async () => {
+  return formatSuccessResponse(getWebhooks());
+});
+
+server.post('/api/v1/webhooks', async (req, reply) => {
+  const body = req.body as any;
+  if (!body?.name || !body?.url || !body?.secret) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: { code: 'INVALID_INPUT', message: 'Tên, URL và Khóa bí mật secret là bắt buộc' },
+    });
+  }
+  const created = createWebhook({
+    name: body.name,
+    url: body.url,
+    secret: body.secret,
+    events: body.events || ['lead.created'],
+    isActive: body.isActive !== undefined ? body.isActive : true,
+  });
+  return formatSuccessResponse(created);
+});
+
+server.delete('/api/v1/webhooks/:id', async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const deleted = deleteWebhook(id);
+  if (!deleted) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy webhook cần xóa' },
+    });
+  }
+  return formatSuccessResponse({ deleted: true, id });
+});
+
+server.get('/api/v1/webhooks/logs', async () => {
+  return formatSuccessResponse(getDeliveryLogs());
 });
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;

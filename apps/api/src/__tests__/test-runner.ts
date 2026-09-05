@@ -21,6 +21,19 @@ import {
   buildZodSchemaFromFormDefinition,
   sanitizeFormSubmission,
 } from '@school-cms/forms';
+import {
+  PIPELINE_STAGES,
+  getNextPipelineStatus,
+  calculatePipelineMetrics,
+  groupLeadsByPipelineStage,
+  PipelineLeadItem,
+} from '@school-cms/shared';
+import {
+  generateHmacSignature,
+  verifyHmacSignature,
+  dispatchWebhookEvent,
+  getWebhooks,
+} from '../webhook';
 
 async function runTestSuite() {
   console.log('====================================================');
@@ -541,6 +554,76 @@ async function runTestSuite() {
     const sanitized = sanitizeFormSubmission(dirtyData);
     assert.strictEqual(sanitized.parentName, 'Nguyễn Văn Nam');
     assert.strictEqual(sanitized.phone, '0912 345 678');
+  });
+
+  // 10. WEBHOOK NOTIFICATION DISPATCHER & ADMISSIONS KANBAN PIPELINE
+  console.log('\n--- 10. Webhook Dispatcher & Admissions Kanban Pipeline ---');
+
+  it('Webhook Dispatcher generates cryptographic HMAC-SHA256 signatures and dispatches events correctly', () => {
+    const payloadStr = JSON.stringify({ event: 'lead.created', timestamp: '2026-09-05T12:00:00Z', data: { id: 'lead-test' } });
+    const secret = 'super_secret_key_123';
+
+    // 1. Signature generation
+    const signature = generateHmacSignature(payloadStr, secret);
+    assert.ok(typeof signature === 'string' && signature.length === 64, 'Signature should be 64-char hex string');
+
+    // 2. Signature verification
+    assert.strictEqual(verifyHmacSignature(payloadStr, signature, secret), true);
+    assert.strictEqual(verifyHmacSignature(payloadStr, signature, 'wrong_secret'), false);
+    assert.strictEqual(verifyHmacSignature(payloadStr + 'tampered', signature, secret), false);
+
+    // 3. Dispatch webhook event
+    const dispatchResult = dispatchWebhookEvent('lead.created', {
+      id: 'lead-999',
+      parentName: 'Hoàng Minh Tuấn',
+      phone: '0901234567',
+      grade: 'Lớp 10',
+    });
+
+    assert.ok(dispatchResult.payload.id.startsWith('evt-'));
+    assert.strictEqual(dispatchResult.payload.event, 'lead.created');
+    assert.ok(dispatchResult.deliveriesDispatched >= 1, 'Should dispatch to at least 1 subscriber');
+    assert.strictEqual(dispatchResult.deliveries[0].status, 'SUCCESS');
+    assert.strictEqual(dispatchResult.deliveries[0].statusCode, 200);
+  });
+
+  it('Admissions Lead Pipeline aggregates Kanban stages, calculates conversion metrics, and progresses status', () => {
+    const testLeads: PipelineLeadItem[] = [
+      { id: '1', parentName: 'P1', phone: '091', email: 'p1@test.vn', studentName: 'S1', grade: 'Lớp 1', branch: 'Biên Hòa', date: '01/09/2026', status: 'Mới', notes: [] },
+      { id: '2', parentName: 'P2', phone: '092', email: 'p2@test.vn', studentName: 'S2', grade: 'Lớp 2', branch: 'Biên Hòa', date: '02/09/2026', status: 'Mới', notes: [] },
+      { id: '3', parentName: 'P3', phone: '093', email: 'p3@test.vn', studentName: 'S3', grade: 'Lớp 6', branch: 'Thủ Đức', date: '03/09/2026', status: 'Đang tư vấn', notes: [] },
+      { id: '4', parentName: 'P4', phone: '094', email: 'p4@test.vn', studentName: 'S4', grade: 'Lớp 10', branch: 'Bình Dương', date: '04/09/2026', status: 'Đã hẹn tham quan', notes: [] },
+      { id: '5', parentName: 'P5', phone: '095', email: 'p5@test.vn', studentName: 'S5', grade: 'Mầm non', branch: 'Biên Hòa', date: '05/09/2026', status: 'Đã nhập học', notes: [] },
+      { id: '6', parentName: 'P6', phone: '096', email: 'p6@test.vn', studentName: 'S6', grade: 'Lớp 1', branch: 'Thủ Đức', date: '05/09/2026', status: 'Spam', notes: [] },
+    ];
+
+    // 1. Grouping by stage
+    const grouped = groupLeadsByPipelineStage(testLeads);
+    assert.strictEqual(grouped['Mới'].length, 2);
+    assert.strictEqual(grouped['Đang tư vấn'].length, 1);
+    assert.strictEqual(grouped['Đã hẹn tham quan'].length, 1);
+    assert.strictEqual(grouped['Đã nhập học'].length, 1);
+    assert.strictEqual(grouped['Spam'].length, 1);
+
+    // 2. Metrics calculation (excluding Spam from total)
+    const metrics = calculatePipelineMetrics(testLeads);
+    assert.strictEqual(metrics.total, 5); // 6 minus 1 spam
+    assert.strictEqual(metrics.newLeads, 2);
+    assert.strictEqual(metrics.inProgress, 2); // 1 Đang tư vấn + 1 Đã hẹn tham quan
+    assert.strictEqual(metrics.enrolled, 1);
+    assert.strictEqual(metrics.conversionRate, 20); // (1 / 5) * 100 = 20%
+
+    // 3. Status progression workflow
+    assert.strictEqual(getNextPipelineStatus('Mới'), 'Đang tư vấn');
+    assert.strictEqual(getNextPipelineStatus('Đang tư vấn'), 'Đã hẹn tham quan');
+    assert.strictEqual(getNextPipelineStatus('Đã hẹn tham quan'), 'Đã nhập học');
+    assert.strictEqual(getNextPipelineStatus('Đã nhập học'), null);
+    assert.strictEqual(getNextPipelineStatus('Spam'), null);
+
+    // 4. Verify PIPELINE_STAGES constant configuration
+    assert.strictEqual(PIPELINE_STAGES.length, 4);
+    assert.strictEqual(PIPELINE_STAGES[0].key, 'Mới');
+    assert.strictEqual(PIPELINE_STAGES[3].key, 'Đã nhập học');
   });
 
   console.log('\n====================================================');

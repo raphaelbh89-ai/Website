@@ -97,6 +97,16 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
   - `School / EducationalOrganization`: Tích hợp đầy đủ thông tin pháp lý, địa chỉ, hotline, học bổng và mô tả trường học.
 - **Dynamic Form Sanitization**: Bộ lọc làm sạch đầu vào form chống XSS và HTML Injection (`sanitizeFormSubmission`), hỗ trợ đầy đủ các kiểu input (`select`, `tel`, `checkbox`, `date`, `radio`).
 
+### 10. Bảng Điều Phối Tuyển Sinh Kanban & Hệ Thống Webhook Tự Động
+- **Bảng Kanban 4 Cột Trực Quan (Admissions Kanban Board)**:
+  - Chuyển đổi linh hoạt giữa chế độ **📋 Danh Sách Bảng** và **📊 Kanban Board 4 Cột** (`Hồ Sơ Mới ➔ Đang Tư Vấn ➔ Đã Hẹn Tham Quan ➔ Đã Nhập Học`).
+  - Thanh chỉ số KPI thời gian thực: Tổng hồ sơ, Hồ sơ mới, Đang xử lý, Đã nhập học và Tỷ lệ chốt thành công (`Conversion Rate %`).
+  - Nút chuyển trạng thái 1 chạm (Quick Status Progression) trực tiếp trên từng thẻ hồ sơ kèm ghi chú lịch sử.
+- **Hệ Thống Webhook Phân Phối Tự Động (Admissions Webhook Dispatcher)**:
+  - Tự động kích hoạt khi phát sinh hồ sơ mới (`lead.created`) hoặc cập nhật trạng thái (`lead.status_updated`).
+  - Ký số bảo mật điện tử **HMAC SHA-256** qua tiêu đề `X-Webhook-Signature` chống giả mạo dữ liệu.
+  - Hệ thống API REST: `/api/v1/webhooks` (đăng ký, quản lý endpoint) và `/api/v1/webhooks/logs` (lưu vết lịch sử phân phối).
+
 ---
 
 ## 🚀 Hướng Dẫn Cài Đặt & Chạy Môi Trường Cục Bộ
@@ -114,7 +124,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 20/20 tests passing (BlockRegistry 8 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, All 8 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization).*
+*Kết quả: 22/22 tests passing (BlockRegistry 8 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, All 8 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics).*
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu
 ```bash

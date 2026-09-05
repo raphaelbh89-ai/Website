@@ -28,6 +28,37 @@ import {
   IdempotencyManager,
   INITIAL_PAYMENT_TRANSACTIONS,
 } from '@school-cms/payment';
+import {
+  StudentProfile,
+  StudentProfileSchema,
+  ParentStudentRelation,
+  ParentStudentRelationSchema,
+  AttendanceRecord,
+  AttendanceRecordSchema,
+  SubjectScore,
+  SubjectScoreSchema,
+  AcademicReportCard,
+  AcademicReportCardSchema,
+  TimetableSlot,
+  TimetableSlotSchema,
+  SchoolNotice,
+  SchoolNoticeSchema,
+  INITIAL_STUDENTS,
+  INITIAL_PARENT_RELATIONS,
+  INITIAL_ATTENDANCES,
+  INITIAL_REPORT_CARDS,
+  INITIAL_TIMETABLES,
+  INITIAL_NOTICES,
+  calculateAttendanceStats,
+  calculateSubjectFinalScore,
+  getLetterGrade,
+  calculateGpa,
+  getAcademicStanding,
+  getConductLabel,
+  getStudentsByParent,
+  canParentAccessStudent,
+  getStudentAcademicSummary,
+} from '@school-cms/portal';
 import '@school-cms/blocks';
 import {
   StatisticsSchema,
@@ -1866,6 +1897,214 @@ async function runTestSuite() {
     assert.strictEqual(metrics.byGateway.vnpay, 1);
     assert.strictEqual(metrics.byGateway.momo, 1);
     assert.strictEqual(metrics.successRate, 50); // (2 / 4) * 100 = 50%
+  });
+
+  // 20. PARENT PORTAL, STUDENT ACADEMIC DOSSIER & SCOPING GUARD
+  console.log('\n--- 20. Parent Portal, Student Academic Hub & Scoping Guard ---');
+
+  it('Parent Portal Data Schema & Academic Model Validation (Student, Attendance, Report Card, Timetable, Notice)', () => {
+    // 1. Student Profile Schema
+    const validStudent = StudentProfileSchema.parse({
+      id: 'stu-test-01',
+      studentCode: 'AS-2026-9999',
+      fullName: 'Vũ Quốc Huy',
+      dateOfBirth: '2014-06-20',
+      gender: 'nam',
+      grade: 'Khối 6',
+      className: '6A2 - Cambridge',
+      branchId: 'bien-hoa',
+      branchName: 'Alpha School Biên Hòa',
+      enrollmentDate: '2020-09-01',
+      academicAdvisor: {
+        name: 'Cô Mai',
+        phone: '0912 345 678',
+        email: 'mai@alphaschool.edu.vn',
+      },
+    });
+    assert.strictEqual(validStudent.studentCode, 'AS-2026-9999');
+    assert.strictEqual(validStudent.status, 'ACTIVE');
+
+    // 2. Attendance Record Schema
+    const validAttendance = AttendanceRecordSchema.parse({
+      id: 'att-test-01',
+      studentId: 'stu-test-01',
+      date: '2026-09-05',
+      status: 'CO_MAT',
+      timeIn: '07:40',
+      timeOut: '16:30',
+    });
+    assert.strictEqual(validAttendance.status, 'CO_MAT');
+
+    // 3. Subject Score & Report Card Schema
+    const validReportCard = AcademicReportCardSchema.parse({
+      id: 'rc-test-01',
+      studentId: 'stu-test-01',
+      semester: 'HK1',
+      academicYear: '2025-2026',
+      gpa: 8.9,
+      conduct: 'TOT',
+      ranking: 2,
+      totalStudentsInClass: 30,
+      homeroomTeacherComment: 'Học tập xuất sắc',
+      subjects: [
+        {
+          subjectCode: 'MATH',
+          subjectName: 'Toán',
+          credit: 4,
+          oralScore: 9,
+          test15m: 9,
+          test45m: 9,
+          semesterExam: 9,
+          finalScore: 9.0,
+          letterGrade: 'A+',
+          teacherComment: 'Tốt',
+        },
+      ],
+    });
+    assert.strictEqual(validReportCard.gpa, 8.9);
+    assert.strictEqual(validReportCard.subjects.length, 1);
+
+    // 4. Timetable Slot Schema
+    const validSlot = TimetableSlotSchema.parse({
+      id: 'tt-test-01',
+      className: '6A2 - Cambridge',
+      dayOfWeek: 2,
+      period: 1,
+      startTime: '07:45',
+      endTime: '08:30',
+      subjectName: 'Toán',
+      teacherName: 'Thầy Đức',
+      room: 'Phòng 301',
+    });
+    assert.strictEqual(validSlot.period, 1);
+    assert.strictEqual(validSlot.dayOfWeek, 2);
+
+    // 5. School Notice Schema
+    const validNotice = SchoolNoticeSchema.parse({
+      id: 'not-test-01',
+      title: 'Họp Phụ Huynh',
+      category: 'academic',
+      publishedAt: '2026-09-05T08:00:00Z',
+      content: 'Kính mời quý phụ huynh tham dự',
+      isUrgent: true,
+    });
+    assert.strictEqual(validNotice.isUrgent, true);
+    assert.strictEqual(validNotice.category, 'academic');
+  });
+
+  it('Parent-Student Relationship Scoping & Privacy Access Guard (prevents cross-student data leaks)', () => {
+    // 1. Phụ huynh Hùng có 2 con: An (stu-001) và Bình (stu-002)
+    const hungPhone = '0909 123 456';
+    const hungChildren = getStudentsByParent(hungPhone, INITIAL_STUDENTS, INITIAL_PARENT_RELATIONS);
+    assert.strictEqual(hungChildren.length, 2, 'Parent Hung should have exactly 2 linked children');
+    assert.ok(hungChildren.some(s => s.id === 'stu-001'));
+    assert.ok(hungChildren.some(s => s.id === 'stu-002'));
+
+    // 2. Quyền truy cập hợp lệ (Authorized Access)
+    assert.strictEqual(canParentAccessStudent(hungPhone, 'stu-001', INITIAL_PARENT_RELATIONS), true);
+    assert.strictEqual(canParentAccessStudent(hungPhone, 'stu-002', INITIAL_PARENT_RELATIONS), true);
+
+    // 3. Ngăn chặn rò rỉ dữ liệu học sinh khác (Cross-tenant Data Leak Prevention)
+    // Phụ huynh Hùng cố truy cập học sinh Ngọc (stu-003 của phụ huynh Tuấn) -> Phải bị chặn!
+    assert.strictEqual(canParentAccessStudent(hungPhone, 'stu-003', INITIAL_PARENT_RELATIONS), false, 'Parent must NOT access unrelated student records');
+
+    // 4. Phụ huynh Tuấn (0918 888 999) chỉ truy cập được con mình (stu-003)
+    const tuanPhone = '0918 888 999';
+    assert.strictEqual(canParentAccessStudent(tuanPhone, 'stu-003', INITIAL_PARENT_RELATIONS), true);
+    assert.strictEqual(canParentAccessStudent(tuanPhone, 'stu-001', INITIAL_PARENT_RELATIONS), false);
+  });
+
+  it('Attendance Statistics & Chuyên Cần Percentage Calculation Engine', () => {
+    const sampleAttendances: AttendanceRecord[] = [
+      { id: '1', studentId: 'stu-test', date: '2026-09-01', status: 'CO_MAT' },
+      { id: '2', studentId: 'stu-test', date: '2026-09-02', status: 'CO_MAT' },
+      { id: '3', studentId: 'stu-test', date: '2026-09-03', status: 'CO_MAT' },
+      { id: '4', studentId: 'stu-test', date: '2026-09-04', status: 'DI_MUON' }, // Đi muộn
+      { id: '5', studentId: 'stu-test', date: '2026-09-05', status: 'VANG_CO_PHEP' }, // Vắng phép
+    ];
+
+    const stats = calculateAttendanceStats(sampleAttendances);
+    assert.strictEqual(stats.totalDays, 5);
+    assert.strictEqual(stats.presentDays, 3);
+    assert.strictEqual(stats.lateArrivals, 1);
+    assert.strictEqual(stats.excusedAbsences, 1);
+    assert.strictEqual(stats.unexcusedAbsences, 0);
+
+    // Tỷ lệ chuyên cần: (3 có mặt + 1 muộn) / 5 = 80%
+    assert.strictEqual(stats.attendanceRate, 80);
+    assert.strictEqual(stats.evaluation, 'CAN_LƯU_Y');
+
+    // Trường hợp 100% chuyên cần
+    const perfectRecords: AttendanceRecord[] = [
+      { id: '10', studentId: 'stu-test', date: '2026-09-01', status: 'CO_MAT' },
+      { id: '11', studentId: 'stu-test', date: '2026-09-02', status: 'CO_MAT' },
+    ];
+    const perfectStats = calculateAttendanceStats(perfectRecords);
+    assert.strictEqual(perfectStats.attendanceRate, 100);
+    assert.strictEqual(perfectStats.evaluation, 'XUAT_SAC');
+  });
+
+  it('Subject Score Weighting, Semester GPA Aggregation, Letter Grade Conversion & Conduct Ranking', () => {
+    // 1. Tính điểm tổng kết môn học: (oral*1 + t15*1 + t45*2 + exam*3) / 7
+    // Ví dụ: (9.0*1 + 9.5*1 + 9.0*2 + 9.0*3) / 7 = 63.5 / 7 = 9.0714 -> 9.1
+    const finalScore = calculateSubjectFinalScore(9.0, 9.5, 9.0, 9.0);
+    assert.strictEqual(finalScore, 9.1);
+
+    // 2. Chuyển đổi thang chữ (Letter Grade)
+    assert.strictEqual(getLetterGrade(9.1), 'A+');
+    assert.strictEqual(getLetterGrade(8.5), 'A');
+    assert.strictEqual(getLetterGrade(7.5), 'B+');
+    assert.strictEqual(getLetterGrade(6.8), 'B');
+    assert.strictEqual(getLetterGrade(5.5), 'C');
+    assert.strictEqual(getLetterGrade(4.0), 'D');
+
+    // 3. Tính GPA môn học có trọng số tín chỉ
+    const subjects: SubjectScore[] = [
+      { subjectCode: 'MATH', subjectName: 'Toán', credit: 4, oralScore: 9, test15m: 9, test45m: 9, semesterExam: 9, finalScore: 9.0, letterGrade: 'A+', teacherComment: '' },
+      { subjectCode: 'LIT', subjectName: 'Văn', credit: 3, oralScore: 8, test15m: 8, test45m: 8, semesterExam: 8, finalScore: 8.0, letterGrade: 'A', teacherComment: '' },
+    ];
+    // Weighted: (9.0*4 + 8.0*3) / 7 = (36 + 24) / 7 = 60 / 7 = 8.5714 -> 8.6
+    const gpa = calculateGpa(subjects);
+    assert.strictEqual(gpa, 8.6);
+
+    // 4. Xếp loại học lực & hạnh kiểm
+    const standing = getAcademicStanding(gpa);
+    assert.strictEqual(standing.standing, 'GIOI');
+    assert.strictEqual(standing.label, 'Học sinh Giỏi');
+
+    const conduct = getConductLabel('TOT');
+    assert.strictEqual(conduct.label, 'Tốt');
+  });
+
+  it('Parent Portal Academic Summary & User Context Role Permissions Contract', () => {
+    // 1. Tra cứu tóm tắt học sinh stu-001 (Nguyễn Văn An)
+    const summary = getStudentAcademicSummary('stu-001', INITIAL_STUDENTS, INITIAL_REPORT_CARDS, INITIAL_ATTENDANCES);
+    assert.ok(summary, 'Academic summary must not be null');
+    assert.strictEqual(summary.student.fullName, 'Nguyễn Văn An');
+    assert.strictEqual(summary.student.className, '6A1 - Cambridge Song Ngữ');
+    assert.ok(summary.attendanceStats.totalDays >= 10);
+    assert.ok(summary.latestReport);
+    assert.strictEqual(summary.latestReport?.gpa, 8.8);
+    assert.strictEqual(summary.academicStanding?.standing, 'GIOI');
+
+    // 2. Role Permissions verification for PARENT and STUDENT
+    const parentUser: UserContext = {
+      userId: 'usr-parent-01',
+      name: 'Nguyễn Văn Hùng',
+      email: 'hung@gmail.com',
+      roles: [RoleCode.PARENT],
+      branchId: null,
+    };
+    assert.strictEqual(hasPermission(parentUser, 'portal:view'), true);
+    assert.strictEqual(hasPermission(parentUser, 'portal:attendance'), true);
+    assert.strictEqual(hasPermission(parentUser, 'portal:grades'), true);
+    assert.strictEqual(hasPermission(parentUser, 'portal:timetable'), true);
+    assert.strictEqual(hasPermission(parentUser, 'portal:notices'), true);
+
+    // Phụ huynh không được phép can thiệp hệ thống CMS quản trị
+    assert.strictEqual(hasPermission(parentUser, 'system:manage'), false);
+    assert.strictEqual(hasPermission(parentUser, 'pages:publish'), false);
+    assert.strictEqual(hasPermission(parentUser, 'theme:manage'), false);
   });
 
   console.log('\n====================================================');

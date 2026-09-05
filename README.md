@@ -30,6 +30,7 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 │   ├── forms/         # Dynamic Form schema validation & builder core
 │   ├── media/         # Quản lý tệp tin, tối ưu hóa WebP & 4 biến thể ảnh thích ứng (Responsive Image Variants)
 │   ├── payment/       # Cổng thanh toán học phí, VietQR Napas 247, HMAC-SHA512 IPN Checksum & Idempotency
+│   ├── portal/        # Sổ liên lạc điện tử, chuyên cần, bảng điểm học tập, thời khóa biểu & bảo vệ đa học sinh
 │   ├── ai-chatbot/    # Trợ lý AI tuyển sinh RAG, phân loại Intent, sổ tay tri thức đa cơ sở & trích dẫn nguồn
 │   ├── seo/           # Tự động sinh JSON-LD Schema.org (School, NewsArticle, Course, FAQPage, Breadcrumb)
 │   ├── theme/         # Design Tokens generator (:root CSS variables) & Scoped Campus Theming
@@ -192,6 +193,29 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 - **Public Checkout Portal (`/tuyen-sinh/thanh-toan/[orderCode]`)**:
   - Trang thanh toán chuyên nghiệp cho phụ huynh kèm tóm tắt đơn hàng, hướng dẫn chuyển khoản, bộ đếm thời gian và trình giả lập Sandbox sinh biên lai điện tử tức thì.
 
+### 17. Cổng Thông Tin Phụ Huynh & Sổ Liên Lạc Điện Tử (Parent Portal & Student Academic Hub)
+- **Package độc lập `@school-cms/portal`**: Tuân thủ mục 3 Giai đoạn 3 `docs/12-architecture-decisions.md` và mục 11.4 `docs/11-extensibility.md`.
+- **Hệ thống liên kết Phụ huynh - Học sinh (Parent-Student Relationship Scoping)**:
+  - Phân quyền theo vai trò `RoleCode.PARENT` và `RoleCode.STUDENT`.
+  - Cơ chế kiểm soát truy cập an toàn `canParentAccessStudent()` ngăn ngừa rò rỉ dữ liệu chéo giữa các gia đình (Cross-tenant Data Leak Prevention).
+  - Hỗ trợ gia đình có nhiều con đang theo học (Multi-child switcher) chuyển đổi hồ sơ chỉ với 1-chạm.
+- **Academic Grading Engine & Bảng Điểm Điện Tử**:
+  - Tính điểm trung bình môn theo trọng số (Chuyên cần 10%, Kiểm tra thường xuyên 20%, Giữa kỳ 30%, Cuối kỳ 40%).
+  - Quy đổi điểm chữ hệ 4.0 chuẩn quốc tế (A+, A, B, C, D, F) và tính GPA tổng kết học kỳ.
+  - Phân loại học lực tự động (Xuất Sắc, Giỏi, Khá, Trung Bình, Yếu) và xếp loại hạnh kiểm (Tốt, Khá).
+  - Hỗ trợ in bảng điểm học bạ điện tử chuẩn hóa (`window.print()`).
+- **Attendance Tracking Engine & Thống Kê Chuyên Cần**:
+  - Ghi nhận trạng thái điểm danh từng ngày: `PRESENT` (Có mặt), `EXCUSED_ABSENCE` (Nghỉ có phép), `UNEXCUSED_ABSENCE` (Nghỉ không phép), `LATE` (Đi trễ).
+  - Tự động tính tỷ lệ chuyên cần (`attendanceRate %`), cảnh báo học sinh vắng quá giới hạn.
+- **Thời Khóa Biểu Tuần (Weekly Timetable) & Thông Báo Nhà Trường (School Notices)**:
+  - Lịch học trực quan phân theo thứ trong tuần, tiết học, môn học, giáo viên phụ trách và phòng học.
+  - Hệ thống thông báo học vụ, sự kiện, học phí phân loại ưu tiên (`URGENT`, `HIGH`, `NORMAL`) với đính kèm văn bản số.
+- **Giao diện Admin Dossier Modal 4 Tab**:
+  - Tab **👨‍👩‍👧 Sổ Liên Lạc & Cổng Phụ Huynh** trên Admin Dashboard kèm 4 KPI cards.
+  - Hồ sơ toàn diện (Student Dossier) 4 sub-tabs: Bảng Điểm, Chuyên Cần, Thời Khóa Biểu, Thông Tin Phụ Huynh.
+- **Cổng Phụ Huynh Trực Tuyến (`/phu-huynh`)**:
+  - Giao diện thân thiện, hiện đại, hiển thị tức thì hồ sơ các con, tình hình điểm danh, phiếu liên lạc và nút thanh toán học phí trực tuyến 1-chạm.
+
 ---
 
 ## 🚀 Hướng Dẫn Cài Đặt & Chạy Môi Trường Cục Bộ
@@ -209,7 +233,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 50/50 tests passing (BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow, AI Knowledge Base Indexing & Multi-category Chunk Validation, Chatbot Intent Classification & Confidence Scoring Precision, RAG Context Grounding & Strict Citation Attribution, AI Chatbot Query REST API & SSE Streaming Contract, Multi-Campus Knowledge Scoping & Global Inheritance, Multi-Campus Hostname Resolution, Scoped Campus Theming & Fallback, HMAC-SHA256 Signed Preview Links, Preview Security & Tamper Proofing, Page Revision Snapshot Deep Diff Comparator, Payment Transaction Sequential Order Code & Idempotency Key, HMAC-SHA512 Gateway Signature & IPN Checksum Verification, VietQR Napas 247 Payload & Transfer Content Syntax Generator, IPN Webhook Dispatcher & Automated Admission Application Status Progression, Financial Aggregations & Gateway Revenue Metrics).*
+*Kết quả: 55/55 tests passing (BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow, AI Knowledge Base Indexing & Multi-category Chunk Validation, Chatbot Intent Classification & Confidence Scoring Precision, RAG Context Grounding & Strict Citation Attribution, AI Chatbot Query REST API & SSE Streaming Contract, Multi-Campus Knowledge Scoping & Global Inheritance, Multi-Campus Hostname Resolution, Scoped Campus Theming & Fallback, HMAC-SHA256 Signed Preview Links, Preview Security & Tamper Proofing, Page Revision Snapshot Deep Diff Comparator, Payment Transaction Sequential Order Code & Idempotency Key, HMAC-SHA512 Gateway Signature & IPN Checksum Verification, VietQR Napas 247 Payload & Transfer Content Syntax Generator, IPN Webhook Dispatcher & Automated Admission Application Status Progression, Financial Aggregations & Gateway Revenue Metrics, Parent-Student Multi-Child Relationship Scoping Guard, Weighted Subject Scoring, Letter Grade & GPA Calculation Precision, Attendance Records Aggregation & Rate Metrics, Student Academic Summary Aggregator, Parent Portal REST API Suite).*
 
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu

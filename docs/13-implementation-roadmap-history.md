@@ -30,6 +30,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 20** | Package Trợ Lý AI Tuyển Sinh RAG `@school-cms/ai-chatbot`, Sổ Tay Tri Thức Đa Cơ Sở, Sandbox Console & 40 Tests | Hoàn thành | `a5b9637` |
 | **Phase 21** | Đa Cơ Sở Hybrid Subdomain Routing, Scoped Theming, Xem Trước Bảo Mật HMAC & So Sánh Snapshot Diff & 45 Tests | Hoàn thành | `ee74d60` |
 | **Phase 22** | Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN & 50 Tests | Hoàn thành | `77fec7a` |
+| **Phase 23** | Cổng Phụ Huynh & Sổ Liên Lạc Điện Tử `@school-cms/portal`, Scoping Guard, Điểm Danh & 55 Tests | Hoàn thành | `Đang cập nhật` |
 
 ---
 
@@ -270,6 +271,56 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
     - Nút Giả lập thanh toán tức thì (Sandbox Simulation Mode) kích hoạt quy trình xác thực IPN và sinh Biên lai điện tử (Electronic Receipt) đóng dấu xác nhận hoàn tất.
   - `apps/api/src/__tests__/test-runner.ts`:
     - Bổ sung Section 19 với 5 bài kiểm thử tự động chuyên sâu (Tests 46 - 50) nâng tổng số lên **50 tests passing 100%**.
+
+### Phase 23: Cổng Thông Tin Phụ Huynh & Sổ Liên Lạc Điện Tử `@school-cms/portal`, Scoping Guard, Điểm Danh Chuyên Cần & Bảng Điểm GPA (Commit: Đang cập nhật)
+- **Tài liệu tham chiếu**:
+  - `docs/12-architecture-decisions.md` Giai đoạn 3 Mục 3: Cổng thông tin Phụ huynh (Parent Portal: xem điểm, thời khóa biểu, chuyên cần).
+  - `docs/11-extensibility.md` Section 11.4 Câu hỏi 4: Thiết kế Cổng Phụ huynh / Sổ liên lạc điện tử không làm xáo trộn kiến trúc phân quyền cũ, kế thừa `RoleCode.PARENT` và `RoleCode.STUDENT`, bảo vệ tính riêng tư tuyệt đối qua cơ chế Parent-Student Scoping Guard (`parent_students`).
+- **Tệp tin**:
+  - `packages/portal/package.json` & `packages/portal/tsconfig.json`: Khởi tạo package độc lập `@school-cms/portal` chuẩn bị sẵn sàng cho ứng dụng di động (Mobile App / PWA).
+  - `packages/portal/src/schema.ts`:
+    - Lược đồ Zod và kiểu dữ liệu: `StudentProfile`, `ParentStudentRelation`, `AttendanceRecord`, `SubjectScore`, `AcademicReportCard`, `TimetableSlot`, `SchoolNotice`.
+    - Bộ nhãn trạng thái điểm danh (`ATTENDANCE_STATUS_LABELS`: Có mặt, Vắng có phép, Vắng không phép, Đi muộn).
+  - `packages/portal/src/attendance-engine.ts`:
+    - Thuật toán thống kê chuyên cần (`calculateAttendanceStats`): tổng số ngày, ngày có mặt, nghỉ có phép/không phép, đi muộn, tính tỷ lệ chuyên cần (%) và xếp loại chuyên cần (`XUAT_SAC`, `TOT`, `CAN_LƯU_Y`).
+  - `packages/portal/src/academic-engine.ts`:
+    - Thuật toán tính điểm trung bình môn học theo trọng số chuẩn Bộ GD&ĐT (`calculateSubjectFinalScore`: Miệng x1, 15p x1, 1 tiết x2, Cuối kỳ x3 chia 7).
+    - Quy đổi thang điểm 10 sang thang chữ quốc tế (`getLetterGrade`: A+, A, B+, B, C, D).
+    - Tính điểm trung bình chung học kỳ GPA có trọng số tín chỉ (`calculateGpa`).
+    - Phân loại học lực (`getAcademicStanding`) và hạnh kiểm (`getConductLabel`).
+  - `packages/portal/src/portal-engine.ts`:
+    - Bộ dữ liệu mẫu khởi tạo chuẩn hóa: `INITIAL_STUDENTS`, `INITIAL_PARENT_RELATIONS`, `INITIAL_ATTENDANCES`, `INITIAL_REPORT_CARDS`, `INITIAL_TIMETABLES`, `INITIAL_NOTICES`.
+    - Phân giải danh sách con em của phụ huynh (`getStudentsByParent`).
+    - Cơ chế bảo vệ riêng tư học sinh Parent Scoping Guard (`canParentAccessStudent`).
+    - Tổng hợp hồ sơ học thuật số hóa (`getStudentAcademicSummary`).
+  - `packages/portal/src/index.ts`: Barrel export toàn diện cho toàn monorepo.
+  - `packages/auth/src/index.ts`:
+    - Bổ sung 5 quyền hạn mới: `'portal:view'`, `'portal:attendance'`, `'portal:grades'`, `'portal:timetable'`, `'portal:notices'`.
+    - Gán quyền hạn portal cho `RoleCode.PARENT` và `RoleCode.STUDENT`.
+    - Mở rộng `AuditLogEntry.entityType` với `'STUDENT' | 'PORTAL'`.
+  - `apps/api/src/index.ts`:
+    - Section 16 Parent Portal REST API:
+      - `POST /api/v1/portal/auth/login`: Đăng nhập phụ huynh qua SĐT / Email.
+      - `GET /api/v1/portal/students`: Lấy danh sách con em của phụ huynh hoặc toàn bộ (nếu Admin).
+      - `GET /api/v1/portal/students/:id/profile`: Báo cáo tổng hợp hồ sơ học sinh, GPA, hạnh kiểm, phụ huynh liên kết.
+      - `GET /api/v1/portal/students/:id/attendance`: Lịch sử điểm danh và tỷ lệ chuyên cần.
+      - `GET /api/v1/portal/students/:id/report-card`: Bảng điểm học bạ điện tử chi tiết các môn.
+      - `GET /api/v1/portal/students/:id/timetable`: Thời khóa biểu trong tuần.
+      - `GET /api/v1/portal/notices`: Thông báo học đường từ Ban Giám Hiệu.
+    - Cập nhật `/api/v1/health` theo dõi `studentsCount`, `attendancesCount`, `reportCardsCount`.
+  - `apps/admin/src/app/page.tsx`:
+    - Bổ sung tab **👨‍👩‍👧 Sổ Liên Lạc & Phụ Huynh (Parent Hub)** trên sidebar.
+    - 4 thẻ KPI: Học sinh toàn hệ thống, Phụ huynh đã kết nối, Tỷ lệ chuyên cần (97.8%), Điểm TB GPA (8.8/10).
+    - Thanh tìm kiếm và bộ lọc học sinh theo cơ sở.
+    - Bảng danh sách học sinh tích hợp xem nhanh chuyên cần, GPA và phụ huynh giám hộ.
+    - Modal Hồ sơ học bạ điện tử (Dossier Modal) với 4 tabs: Bảng điểm, Chuyên cần, Thời khóa biểu, Thông tin phụ huynh.
+  - `apps/web/src/app/phu-huynh/page.tsx`:
+    - Cổng thông tin phụ huynh công cộng, giao diện hiện đại, tối ưu di động.
+    - Bộ chuyển đổi tài khoản con em đa năng (Multi-child switcher).
+    - 4 tabs nghiệp vụ: **📊 Bảng Điểm & Học Lực**, **✅ Điểm Danh & Chuyên Cần**, **📅 Thời Khóa Biểu Tuần**, **📢 Thông Báo Học Đường**.
+    - Tích hợp nút in phiếu điểm (`window.print()`) và liên kết đóng học phí trực tuyến 1-chạm.
+  - `apps/api/src/__tests__/test-runner.ts`:
+    - Bổ sung Section 20 với 5 bài kiểm thử tự động chuyên sâu (Tests 51 - 55) nâng tổng số lên **55 tests passing 100%**.
 
 ---
 

@@ -44,6 +44,25 @@ import {
   calculatePaymentMetrics,
   INITIAL_PAYMENT_TRANSACTIONS,
 } from '@school-cms/payment';
+import {
+  StudentProfile,
+  ParentStudentRelation,
+  AttendanceRecord,
+  AcademicReportCard,
+  TimetableSlot,
+  SchoolNotice,
+  INITIAL_STUDENTS,
+  INITIAL_PARENT_RELATIONS,
+  INITIAL_ATTENDANCES,
+  INITIAL_REPORT_CARDS,
+  INITIAL_TIMETABLES,
+  INITIAL_NOTICES,
+  calculateAttendanceStats,
+  calculateGpa,
+  getAcademicStanding,
+  getConductLabel,
+  ATTENDANCE_STATUS_LABELS,
+} from '@school-cms/portal';
 
 interface BlockItem {
   id: string;
@@ -121,7 +140,7 @@ export default function AdminDashboard() {
   // Current user role switcher for testing RBAC
   const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'admissions' | 'payments' | 'chatbot' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'admissions' | 'payments' | 'portal' | 'chatbot' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Admissions state
@@ -276,6 +295,18 @@ export default function AdminDashboard() {
   const [showPaymentDetailModal, setShowPaymentDetailModal] = useState<boolean>(false);
   const [manualConfirmNote, setManualConfirmNote] = useState<string>('');
   const [manualConfirmReference, setManualConfirmReference] = useState<string>('');
+
+  // Parent Portal & Student Academic Dossier state
+  const [studentsList, setStudentsList] = useState<StudentProfile[]>([...INITIAL_STUDENTS]);
+  const [parentRelations, setParentRelations] = useState<ParentStudentRelation[]>([...INITIAL_PARENT_RELATIONS]);
+  const [attendancesList, setAttendancesList] = useState<AttendanceRecord[]>([...INITIAL_ATTENDANCES]);
+  const [reportCardsList, setReportCardsList] = useState<AcademicReportCard[]>([...INITIAL_REPORT_CARDS]);
+  const [timetablesList, setTimetablesList] = useState<TimetableSlot[]>([...INITIAL_TIMETABLES]);
+  const [studentSearch, setStudentSearch] = useState<string>('');
+  const [studentBranchFilter, setStudentBranchFilter] = useState<string>('all');
+  const [selectedStudentForModal, setSelectedStudentForModal] = useState<StudentProfile | null>(null);
+  const [studentModalTab, setStudentModalTab] = useState<'academic' | 'attendance' | 'timetable' | 'parent'>('academic');
+  const [showStudentModal, setShowStudentModal] = useState<boolean>(false);
 
   // AI Chatbot Knowledge Base & Live Console state
   const [knowledgeSources, setKnowledgeSources] = useState<KnowledgeSource[]>([...INITIAL_KNOWLEDGE_SOURCES]);
@@ -1392,6 +1423,14 @@ export default function AdminDashboard() {
             }`}
           >
             <span>💳</span> Tài Chính & Học Phí ({payments.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('portal')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeTab === 'portal' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <span>👨‍👩‍👧</span> Sổ Liên Lạc & Phụ Huynh ({studentsList.length})
           </button>
           <button
             onClick={() => setActiveTab('chatbot')}
@@ -3158,6 +3197,516 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+            </div>
+          );
+        })()}
+
+        {/* TAB: SỔ LIÊN LẠC & CỔNG PHỤ HUYNH */}
+        {activeTab === 'portal' && (() => {
+          const filteredStudents = studentsList.filter((s) => {
+            const matchesBranch = studentBranchFilter === 'all' || s.branchId === studentBranchFilter;
+            const q = studentSearch.trim().toLowerCase();
+            const matchesSearch =
+              !q ||
+              s.studentCode.toLowerCase().includes(q) ||
+              s.fullName.toLowerCase().includes(q) ||
+              s.className.toLowerCase().includes(q);
+            return matchesBranch && matchesSearch;
+          });
+
+          const totalStudents = studentsList.length;
+          const totalParents = parentRelations.length;
+          const allAttendanceStats = calculateAttendanceStats(attendancesList);
+          const averageGpa = reportCardsList.length > 0 
+            ? Math.round((reportCardsList.reduce((acc, c) => acc + c.gpa, 0) / reportCardsList.length) * 10) / 10
+            : 8.8;
+
+          return (
+            <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                    <span>👨‍👩‍👧</span> Sổ Liên Lạc Điện Tử & Cổng Phụ Huynh (Parent Hub)
+                  </h1>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Quản lý hồ sơ học sinh, tra cứu điểm danh chuyên cần, bảng điểm GPA học kỳ và phân quyền liên kết phụ huynh.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <a
+                    href="/phu-huynh"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow transition-all"
+                  >
+                    <span>🌐</span> Mở Cổng Phụ Huynh Trực Tuyến
+                  </a>
+                </div>
+              </div>
+
+              {/* 4 KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm relative overflow-hidden">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Học Sinh Toàn Hệ Thống</div>
+                  <div className="text-3xl font-black text-emerald-800 mt-2">{totalStudents} <span className="text-sm font-semibold text-slate-500">em</span></div>
+                  <div className="text-xs text-emerald-600 font-medium mt-1">100% hồ sơ học bạ số hóa</div>
+                  <div className="absolute right-4 bottom-4 text-3xl opacity-20">🎒</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-blue-100 shadow-sm relative overflow-hidden">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Phụ Huynh Đã Kết Nối</div>
+                  <div className="text-3xl font-black text-blue-800 mt-2">{totalParents} <span className="text-sm font-semibold text-slate-500">tài khoản</span></div>
+                  <div className="text-xs text-blue-600 font-medium mt-1">Kích hoạt thông báo Zalo / App</div>
+                  <div className="absolute right-4 bottom-4 text-3xl opacity-20">📱</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-teal-100 shadow-sm relative overflow-hidden">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tỷ Lệ Chuyên Cần</div>
+                  <div className="text-3xl font-black text-teal-800 mt-2">{allAttendanceStats.attendanceRate}%</div>
+                  <div className="text-xs text-teal-600 font-medium mt-1">Đánh giá: Xuất Sắc</div>
+                  <div className="absolute right-4 bottom-4 text-3xl opacity-20">✅</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-amber-100 shadow-sm relative overflow-hidden">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Điểm Trung Bình (GPA)</div>
+                  <div className="text-3xl font-black text-amber-800 mt-2">{averageGpa} <span className="text-sm font-semibold text-slate-500">/ 10</span></div>
+                  <div className="text-xs text-amber-600 font-medium mt-1">Xếp loại: Học sinh Giỏi</div>
+                  <div className="absolute right-4 bottom-4 text-3xl opacity-20">🏆</div>
+                </div>
+              </div>
+
+              {/* Filter & Search Bar */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-1 items-center gap-3">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm theo mã học sinh, họ tên, lớp học..."
+                      value={studentSearch}
+                      onChange={(e) => setStudentSearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+                  <select
+                    value={studentBranchFilter}
+                    onChange={(e) => setStudentBranchFilter(e.target.value)}
+                    className="px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-700 font-medium focus:outline-none"
+                  >
+                    <option value="all">Tất Cả Cơ Sở</option>
+                    <option value="bien-hoa">Cơ sở Biên Hòa</option>
+                    <option value="thu-duc">Cơ sở TP. Thủ Đức</option>
+                  </select>
+                </div>
+                <div className="text-xs font-bold text-slate-500">
+                  Hiển thị: <span className="text-slate-900 font-black">{filteredStudents.length}</span> học sinh
+                </div>
+              </div>
+
+              {/* Students List Table */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                        <th className="px-5 py-3.5">Học Sinh</th>
+                        <th className="px-5 py-3.5">Mã Số</th>
+                        <th className="px-5 py-3.5">Khối & Lớp</th>
+                        <th className="px-5 py-3.5">Cơ Sở</th>
+                        <th className="px-5 py-3.5">Phụ Huynh Giám Hộ</th>
+                        <th className="px-5 py-3.5 text-center">Chuyên Cần</th>
+                        <th className="px-5 py-3.5 text-center">GPA Học Kỳ</th>
+                        <th className="px-5 py-3.5 text-right">Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredStudents.map((stu) => {
+                        const rel = parentRelations.find((r) => r.studentId === stu.id);
+                        const stuAttendances = attendancesList.filter((a) => a.studentId === stu.id);
+                        const stuStats = calculateAttendanceStats(stuAttendances);
+                        const reportCard = reportCardsList.find((r) => r.studentId === stu.id);
+                        const academicStanding = reportCard ? getAcademicStanding(reportCard.gpa) : null;
+
+                        return (
+                          <tr key={stu.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-3">
+                                {stu.avatarUrl ? (
+                                  <img
+                                    src={stu.avatarUrl}
+                                    alt={stu.fullName}
+                                    className="w-9 h-9 rounded-full object-cover border border-emerald-200"
+                                  />
+                                ) : (
+                                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs">
+                                    {stu.fullName.slice(-2)}
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-bold text-slate-900">{stu.fullName}</div>
+                                  <div className="text-[11px] text-slate-400">Sinh ngày: {stu.dateOfBirth}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 font-mono font-bold text-emerald-700">
+                              {stu.studentCode}
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <div className="font-semibold text-slate-800">{stu.className}</div>
+                              <div className="text-[11px] text-slate-500">{stu.grade}</div>
+                            </td>
+                            <td className="px-5 py-3.5 text-slate-600 font-medium">
+                              {stu.branchName}
+                            </td>
+                            <td className="px-5 py-3.5">
+                              {rel ? (
+                                <div>
+                                  <div className="font-bold text-slate-800">{rel.parentName} ({rel.relationship === 'bo' ? 'Bố' : 'Mẹ'})</div>
+                                  <div className="text-[11px] text-slate-500 font-mono">{rel.parentPhone}</div>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic">Chưa liên kết</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3.5 text-center">
+                              <span className="inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                {stuStats.attendanceRate}%
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-center">
+                              {reportCard ? (
+                                <div>
+                                  <span className="font-black text-amber-700 text-sm">{reportCard.gpa}</span>
+                                  {academicStanding && (
+                                    <div className="text-[10px] text-slate-500 font-medium">{academicStanding.label}</div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400">--</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <button
+                                onClick={() => {
+                                  setSelectedStudentForModal(stu);
+                                  setShowStudentModal(true);
+                                }}
+                                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-lg border border-emerald-200 text-xs transition-colors"
+                              >
+                                📖 Xem Sổ Liên Lạc
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredStudents.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="px-5 py-12 text-center text-slate-400">
+                            Không tìm thấy học sinh nào phù hợp với điều kiện tìm kiếm.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Student Dossier Modal */}
+              {showStudentModal && selectedStudentForModal && (() => {
+                const currentReport = reportCardsList.find((r) => r.studentId === selectedStudentForModal.id);
+                const currentAttendances = attendancesList.filter((a) => a.studentId === selectedStudentForModal.id);
+                const currentStats = calculateAttendanceStats(currentAttendances);
+                const currentRelation = parentRelations.find((r) => r.studentId === selectedStudentForModal.id);
+                const currentTimetables = timetablesList.filter((t) => t.className === selectedStudentForModal.className);
+
+                return (
+                  <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+                    <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-100 p-6 space-y-6">
+                      {/* Modal Header */}
+                      <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-4">
+                          {selectedStudentForModal.avatarUrl ? (
+                            <img
+                              src={selectedStudentForModal.avatarUrl}
+                              alt={selectedStudentForModal.fullName}
+                              className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-500 shadow-md"
+                            />
+                          ) : (
+                            <div className="w-14 h-14 rounded-2xl bg-emerald-700 text-white font-black text-xl flex items-center justify-center">
+                              {selectedStudentForModal.fullName.slice(-2)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-xl font-black text-slate-900">{selectedStudentForModal.fullName}</h3>
+                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                {selectedStudentForModal.studentCode}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {selectedStudentForModal.className} • {selectedStudentForModal.branchName} • GVCN: {selectedStudentForModal.academicAdvisor.name} ({selectedStudentForModal.academicAdvisor.phone})
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setShowStudentModal(false)}
+                          className="text-slate-400 hover:text-slate-700 font-bold text-xl p-1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Modal Navigation Tabs */}
+                      <div className="flex border-b border-slate-200 text-xs font-bold gap-4">
+                        <button
+                          onClick={() => setStudentModalTab('academic')}
+                          className={`pb-2.5 border-b-2 transition-colors ${
+                            studentModalTab === 'academic'
+                              ? 'border-emerald-700 text-emerald-800'
+                              : 'border-transparent text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          📊 Bảng Điểm & Học Lực
+                        </button>
+                        <button
+                          onClick={() => setStudentModalTab('attendance')}
+                          className={`pb-2.5 border-b-2 transition-colors ${
+                            studentModalTab === 'attendance'
+                              ? 'border-emerald-700 text-emerald-800'
+                              : 'border-transparent text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          ✅ Chuyên Cần ({currentStats.attendanceRate}%)
+                        </button>
+                        <button
+                          onClick={() => setStudentModalTab('timetable')}
+                          className={`pb-2.5 border-b-2 transition-colors ${
+                            studentModalTab === 'timetable'
+                              ? 'border-emerald-700 text-emerald-800'
+                              : 'border-transparent text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          📅 Thời Khóa Biểu
+                        </button>
+                        <button
+                          onClick={() => setStudentModalTab('parent')}
+                          className={`pb-2.5 border-b-2 transition-colors ${
+                            studentModalTab === 'parent'
+                              ? 'border-emerald-700 text-emerald-800'
+                              : 'border-transparent text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          👨‍👩‍👧 Phụ Huynh Liên Hệ
+                        </button>
+                      </div>
+
+                      {/* Tab 1: Academic Scores */}
+                      {studentModalTab === 'academic' && (
+                        <div className="space-y-4 text-xs">
+                          {currentReport ? (
+                            <>
+                              <div className="grid grid-cols-4 gap-3 bg-emerald-50/60 p-4 rounded-2xl border border-emerald-100">
+                                <div>
+                                  <span className="text-slate-500 text-[11px] block">Điểm Trung Bình (GPA):</span>
+                                  <span className="text-2xl font-black text-emerald-800">{currentReport.gpa} / 10</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500 text-[11px] block">Học Lực:</span>
+                                  <span className="font-bold text-slate-900 text-sm">
+                                    {getAcademicStanding(currentReport.gpa).label}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500 text-[11px] block">Hạnh Kiểm:</span>
+                                  <span className="font-bold text-emerald-700 text-sm">
+                                    {getConductLabel(currentReport.conduct).label}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500 text-[11px] block">Xếp Hạng Lớp:</span>
+                                  <span className="font-bold text-slate-900 text-sm">
+                                    Hạng {currentReport.ranking} / {currentReport.totalStudentsInClass}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                                <table className="w-full text-left">
+                                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                                    <tr>
+                                      <th className="p-2.5">Môn Học</th>
+                                      <th className="p-2.5 text-center">Miệng (x1)</th>
+                                      <th className="p-2.5 text-center">15 Phút (x1)</th>
+                                      <th className="p-2.5 text-center">1 Tiết (x2)</th>
+                                      <th className="p-2.5 text-center">Cuối Kỳ (x3)</th>
+                                      <th className="p-2.5 text-center font-black">Tổng Kết</th>
+                                      <th className="p-2.5 text-center">Thang Chữ</th>
+                                      <th className="p-2.5">Nhận Xét Của Giáo Viên Bộ Môn</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {currentReport.subjects.map((sub) => (
+                                      <tr key={sub.subjectCode} className="hover:bg-slate-50/50">
+                                        <td className="p-2.5 font-bold text-slate-800">{sub.subjectName}</td>
+                                        <td className="p-2.5 text-center font-mono">{sub.oralScore}</td>
+                                        <td className="p-2.5 text-center font-mono">{sub.test15m}</td>
+                                        <td className="p-2.5 text-center font-mono">{sub.test45m}</td>
+                                        <td className="p-2.5 text-center font-mono">{sub.semesterExam}</td>
+                                        <td className="p-2.5 text-center font-mono font-black text-emerald-700 text-sm">
+                                          {sub.finalScore}
+                                        </td>
+                                        <td className="p-2.5 text-center font-bold text-blue-700">{sub.letterGrade}</td>
+                                        <td className="p-2.5 text-slate-600 italic">{sub.teacherComment}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 text-amber-900">
+                                <span className="font-bold block mb-1">📝 Nhận xét của Giáo viên Chủ nhiệm:</span>
+                                <p className="italic">"{currentReport.homeroomTeacherComment}"</p>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="p-8 text-center text-slate-400">
+                              Chưa cập nhật bảng điểm cho học sinh này.
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Tab 2: Attendance */}
+                      {studentModalTab === 'attendance' && (
+                        <div className="space-y-4 text-xs">
+                          <div className="grid grid-cols-4 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center">
+                            <div>
+                              <span className="text-slate-500 block">Tổng Số Ngày</span>
+                              <span className="text-xl font-bold text-slate-900">{currentStats.totalDays}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Có Mặt Đầy Đủ</span>
+                              <span className="text-xl font-bold text-emerald-700">{currentStats.presentDays}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Vắng Có Phép</span>
+                              <span className="text-xl font-bold text-amber-700">{currentStats.excusedAbsences}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Đi Muộn</span>
+                              <span className="text-xl font-bold text-orange-700">{currentStats.lateArrivals}</span>
+                            </div>
+                          </div>
+
+                          <div className="border border-slate-200 rounded-xl overflow-hidden">
+                            <table className="w-full text-left">
+                              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                                <tr>
+                                  <th className="p-2.5">Ngày</th>
+                                  <th className="p-2.5">Trạng Thái</th>
+                                  <th className="p-2.5">Giờ Đến</th>
+                                  <th className="p-2.5">Giờ Về</th>
+                                  <th className="p-2.5">Ghi Chú Điểm Danh</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {currentAttendances.map((att) => {
+                                  const labelConfig = ATTENDANCE_STATUS_LABELS[att.status];
+                                  return (
+                                    <tr key={att.id} className="hover:bg-slate-50/50">
+                                      <td className="p-2.5 font-bold font-mono text-slate-800">{att.date}</td>
+                                      <td className="p-2.5">
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[11px] border ${labelConfig.badgeColor}`}>
+                                          <span>{labelConfig.icon}</span> {labelConfig.label}
+                                        </span>
+                                      </td>
+                                      <td className="p-2.5 font-mono">{att.timeIn || '--:--'}</td>
+                                      <td className="p-2.5 font-mono">{att.timeOut || '--:--'}</td>
+                                      <td className="p-2.5 text-slate-600 italic">{att.note || 'Bình thường'}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tab 3: Timetable */}
+                      {studentModalTab === 'timetable' && (
+                        <div className="space-y-4 text-xs">
+                          <div className="border border-slate-200 rounded-xl overflow-hidden">
+                            <table className="w-full text-left">
+                              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                                <tr>
+                                  <th className="p-2.5">Thứ</th>
+                                  <th className="p-2.5 text-center">Tiết</th>
+                                  <th className="p-2.5">Thời Gian</th>
+                                  <th className="p-2.5">Môn Học</th>
+                                  <th className="p-2.5">Giáo Viên Giảng Dạy</th>
+                                  <th className="p-2.5">Phòng Học</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {currentTimetables.map((t) => (
+                                  <tr key={t.id} className="hover:bg-slate-50/50">
+                                    <td className="p-2.5 font-bold text-emerald-800">Thứ {t.dayOfWeek}</td>
+                                    <td className="p-2.5 text-center font-bold">Tiết {t.period}</td>
+                                    <td className="p-2.5 font-mono text-slate-500">{t.startTime} - {t.endTime}</td>
+                                    <td className="p-2.5 font-bold text-slate-900">{t.subjectName}</td>
+                                    <td className="p-2.5 text-slate-700">{t.teacherName}</td>
+                                    <td className="p-2.5 font-semibold text-slate-600">{t.room}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tab 4: Parent Info */}
+                      {studentModalTab === 'parent' && (
+                        <div className="space-y-4 text-xs bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                          {currentRelation ? (
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <span className="text-slate-500 block mb-1">Họ và tên Phụ huynh:</span>
+                                <span className="font-bold text-slate-900 text-sm">{currentRelation.parentName}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block mb-1">Quan hệ với học sinh:</span>
+                                <span className="font-bold text-emerald-700 text-sm">
+                                  {currentRelation.relationship === 'bo' ? 'Bố ruột' : currentRelation.relationship === 'me' ? 'Mẹ ruột' : 'Người giám hộ'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block mb-1">Số điện thoại đăng ký Sổ liên lạc:</span>
+                                <span className="font-mono font-bold text-slate-900 text-sm">{currentRelation.parentPhone}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block mb-1">Email nhận phiếu điểm & thông báo:</span>
+                                <span className="font-mono font-bold text-slate-900 text-sm">{currentRelation.parentEmail}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-slate-400">Chưa liên kết thông tin phụ huynh.</div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          onClick={() => setShowStudentModal(false)}
+                          className="px-5 py-2 border border-slate-200 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-100"
+                        >
+                          Đóng
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}

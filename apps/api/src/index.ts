@@ -70,6 +70,24 @@ import {
   INITIAL_PAYMENT_TRANSACTIONS,
   globalPaymentIdempotency,
 } from '@school-cms/payment';
+import {
+  StudentProfile,
+  ParentStudentRelation,
+  AttendanceRecord,
+  AcademicReportCard,
+  TimetableSlot,
+  SchoolNotice,
+  INITIAL_STUDENTS,
+  INITIAL_PARENT_RELATIONS,
+  INITIAL_ATTENDANCES,
+  INITIAL_REPORT_CARDS,
+  INITIAL_TIMETABLES,
+  INITIAL_NOTICES,
+  getStudentsByParent,
+  canParentAccessStudent,
+  getStudentAcademicSummary,
+  calculateAttendanceStats,
+} from '@school-cms/portal';
 
 const server = Fastify({ logger: true });
 
@@ -2868,7 +2886,145 @@ server.get('/api/v1/payments/stats', async () => {
 });
 
 // -------------------------------------------------------------
-// 16. SYSTEM HEALTH CHECK API
+// 16. PARENT PORTAL & STUDENT ACADEMIC HUB API
+// -------------------------------------------------------------
+let studentsStore: StudentProfile[] = [...INITIAL_STUDENTS];
+let parentRelationsStore: ParentStudentRelation[] = [...INITIAL_PARENT_RELATIONS];
+let attendancesStore: AttendanceRecord[] = [...INITIAL_ATTENDANCES];
+let reportCardsStore: AcademicReportCard[] = [...INITIAL_REPORT_CARDS];
+let timetablesStore: TimetableSlot[] = [...INITIAL_TIMETABLES];
+let noticesStore: SchoolNotice[] = [...INITIAL_NOTICES];
+
+// 16.1 Xác thực phụ huynh (Login)
+server.post('/api/v1/portal/auth/login', async (req, reply) => {
+  const body = (req.body || {}) as { identifier?: string; phone?: string; email?: string };
+  const id = body.identifier || body.phone || body.email;
+  if (!id) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: { code: 'INVALID_INPUT', message: 'Vui lòng cung cấp số điện thoại hoặc email phụ huynh' },
+    });
+  }
+
+  const children = getStudentsByParent(id, studentsStore, parentRelationsStore);
+  if (children.length === 0) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'PARENT_NOT_FOUND', message: 'Không tìm thấy hồ sơ học sinh liên kết với thông tin này' },
+    });
+  }
+
+  const relation = parentRelationsStore.find(
+    (r) =>
+      r.parentPhone.replace(/\s+/g, '') === id.replace(/\s+/g, '') ||
+      r.parentEmail.toLowerCase() === id.toLowerCase() ||
+      r.parentId.toLowerCase() === id.toLowerCase()
+  );
+
+  return formatSuccessResponse({
+    token: `parent_token_${Date.now()}`,
+    parent: {
+      id: relation?.parentId || 'usr-parent-01',
+      name: relation?.parentName || 'Phụ huynh Alpha',
+      phone: relation?.parentPhone || id,
+      email: relation?.parentEmail || '',
+    },
+    students: children,
+  });
+});
+
+// 16.2 Danh sách học sinh theo phụ huynh (hoặc toàn bộ nếu Admin)
+server.get('/api/v1/portal/students', async (req) => {
+  const { parentId, phone, branchId, search } = req.query as {
+    parentId?: string;
+    phone?: string;
+    branchId?: string;
+    search?: string;
+  };
+
+  let results = [...studentsStore];
+
+  if (parentId || phone) {
+    results = getStudentsByParent(parentId || phone || '', studentsStore, parentRelationsStore);
+  } else if (branchId && branchId !== 'all') {
+    results = results.filter((s) => s.branchId === branchId);
+  }
+
+  if (search) {
+    const q = search.toLowerCase();
+    results = results.filter(
+      (s) =>
+        s.studentCode.toLowerCase().includes(q) ||
+        s.fullName.toLowerCase().includes(q) ||
+        s.className.toLowerCase().includes(q)
+    );
+  }
+
+  return formatSuccessResponse(results);
+});
+
+// 16.3 Hồ sơ học sinh chi tiết & Báo cáo tổng hợp
+server.get('/api/v1/portal/students/:id/profile', async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const summary = getStudentAcademicSummary(id, studentsStore, reportCardsStore, attendancesStore);
+  if (!summary) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy thông tin học sinh' },
+    });
+  }
+
+  const parentRelation = parentRelationsStore.find((r) => r.studentId === id);
+
+  return formatSuccessResponse({
+    ...summary,
+    parentRelation,
+  });
+});
+
+// 16.4 Lịch sử điểm danh & Thống kê chuyên cần
+server.get('/api/v1/portal/students/:id/attendance', async (req) => {
+  const { id } = req.params as { id: string };
+  const records = attendancesStore.filter((a) => a.studentId === id);
+  const stats = calculateAttendanceStats(records);
+  return formatSuccessResponse({
+    stats,
+    records,
+  });
+});
+
+// 16.5 Bảng điểm học bạ điện tử
+server.get('/api/v1/portal/students/:id/report-card', async (req) => {
+  const { id } = req.params as { id: string };
+  const cards = reportCardsStore.filter((r) => r.studentId === id);
+  return formatSuccessResponse(cards);
+});
+
+// 16.6 Thời khóa biểu theo lớp
+server.get('/api/v1/portal/students/:id/timetable', async (req) => {
+  const { id } = req.params as { id: string };
+  const student = studentsStore.find((s) => s.id === id);
+  const slots = student
+    ? timetablesStore.filter((t) => t.className === student.className)
+    : timetablesStore;
+  return formatSuccessResponse(slots);
+});
+
+// 16.7 Thông báo học đường điện tử
+server.get('/api/v1/portal/notices', async (req) => {
+  const { branchId } = req.query as { branchId?: string };
+  let results = noticesStore;
+  if (branchId && branchId !== 'all') {
+    results = results.filter((n) => !n.branchId || n.branchId === branchId);
+  }
+  return formatSuccessResponse(results);
+});
+
+// -------------------------------------------------------------
+// 17. SYSTEM HEALTH CHECK API
 // -------------------------------------------------------------
 server.get('/api/v1/health', async () => {
   const cacheStats = globalCacheManager.getStats();
@@ -2892,6 +3048,9 @@ server.get('/api/v1/health', async () => {
       chatbotConversationsCount: chatbotConversationsStore.length,
       paymentsCount: paymentTransactionsStore.length,
       totalRevenueVnd: paymentMetrics.totalRevenue,
+      studentsCount: studentsStore.length,
+      attendancesCount: attendancesStore.length,
+      reportCardsCount: reportCardsStore.length,
     },
   });
 });

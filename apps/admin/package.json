@@ -14,6 +14,7 @@
     "@school-cms/blocks": "workspace:*",
     "@school-cms/cms": "workspace:*",
     "@school-cms/payment": "workspace:*",
+    "@school-cms/portal": "workspace:*",
     "@school-cms/shared": "workspace:*",
     "@school-cms/theme": "workspace:*",
     "@school-cms/ui": "workspace:*",

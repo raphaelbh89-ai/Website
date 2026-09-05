@@ -22,12 +22,17 @@ export type PermissionCode =
   | 'leads:write'
   | 'leads:export'
   | 'theme:manage'
-  | 'forms:manage';
+  | 'forms:manage'
+  | 'portal:view'
+  | 'portal:attendance'
+  | 'portal:grades'
+  | 'portal:timetable'
+  | 'portal:notices';
 
 export interface PermissionDefinition {
   code: PermissionCode;
   name: string;
-  category: 'system' | 'content' | 'admissions' | 'settings';
+  category: 'system' | 'content' | 'admissions' | 'settings' | 'portal';
 }
 
 export const ALL_PERMISSIONS: PermissionDefinition[] = [
@@ -44,6 +49,11 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
   { code: 'leads:export', name: 'Xuất danh sách hồ sơ ra Excel/CSV', category: 'admissions' },
   { code: 'theme:manage', name: 'Tùy biến theme & bảng màu', category: 'settings' },
   { code: 'forms:manage', name: 'Thiết kế biểu mẫu động', category: 'settings' },
+  { code: 'portal:view', name: 'Truy cập cổng thông tin học sinh & sổ liên lạc', category: 'portal' },
+  { code: 'portal:attendance', name: 'Xem lịch sử điểm danh & chuyên cần', category: 'portal' },
+  { code: 'portal:grades', name: 'Tra cứu bảng điểm & đánh giá học lực', category: 'portal' },
+  { code: 'portal:timetable', name: 'Xem thời khóa biểu học tập', category: 'portal' },
+  { code: 'portal:notices', name: 'Nhận thông báo học đường từ nhà trường', category: 'portal' },
 ];
 
 export const RolePermissions: Record<RoleCode, PermissionCode[]> = {
@@ -61,6 +71,11 @@ export const RolePermissions: Record<RoleCode, PermissionCode[]> = {
     'leads:export',
     'theme:manage',
     'forms:manage',
+    'portal:view',
+    'portal:attendance',
+    'portal:grades',
+    'portal:timetable',
+    'portal:notices',
   ],
   [RoleCode.CAMPUS_DIRECTOR]: [
     'pages:read',
@@ -73,6 +88,11 @@ export const RolePermissions: Record<RoleCode, PermissionCode[]> = {
     'leads:write',
     'leads:export',
     'forms:manage',
+    'portal:view',
+    'portal:attendance',
+    'portal:grades',
+    'portal:timetable',
+    'portal:notices',
   ],
   [RoleCode.CONTENT_EDITOR]: [
     'pages:read',
@@ -84,8 +104,20 @@ export const RolePermissions: Record<RoleCode, PermissionCode[]> = {
     'leads:read',
     'leads:write',
   ],
-  [RoleCode.PARENT]: [],
-  [RoleCode.STUDENT]: [],
+  [RoleCode.PARENT]: [
+    'portal:view',
+    'portal:attendance',
+    'portal:grades',
+    'portal:timetable',
+    'portal:notices',
+  ],
+  [RoleCode.STUDENT]: [
+    'portal:view',
+    'portal:attendance',
+    'portal:grades',
+    'portal:timetable',
+    'portal:notices',
+  ],
 };
 
 /**
@@ -124,7 +156,7 @@ export interface AuditLogEntry {
   userRole: string;
   branchId?: string | null;
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'PUBLISH' | 'EXPORT' | 'STATUS_CHANGE';
-  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'FORM' | 'THEME' | 'USER' | 'ROLE' | 'MENU' | 'TRANSLATION' | 'PAYMENT';
+  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'FORM' | 'THEME' | 'USER' | 'ROLE' | 'MENU' | 'TRANSLATION' | 'PAYMENT' | 'STUDENT' | 'PORTAL';
   entityId: string;
   entityTitle?: string;
   details?: Record<string, any>;

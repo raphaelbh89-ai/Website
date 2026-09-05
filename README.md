@@ -90,7 +90,12 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 - **Multi-Language (i18n) API**: `/api/v1/translations`, `/api/v1/translations/:key` (quản trị từ điển song ngữ tập trung).
 - **User Accounts & RBAC Matrix API**: `/api/v1/users`, `/api/v1/users/:id/status`, `/api/v1/roles/permissions` (quản lý phân quyền động).
 - **System Backup & Restore API**: `/api/v1/system/backup`, `/api/v1/system/restore` (sao lưu & phục hồi toàn bộ trang web).
-- **Healthcheck Monitor API**: `/api/v1/health` tự động giám sát số lượng blocks, trang, cơ sở, bài viết, menu và người dùng.
+### 9. Công Cụ SEO Rich Snippets & Bảo Mật Biểu Mẫu (Form Sanitization)
+- **Schema.org Structured Data**: Tự động sinh mã JSON-LD chuẩn hóa Google Rich Results:
+  - `FAQPage`: Khối câu hỏi thường gặp FAQ tự động gắn thẻ cấu trúc hỗ trợ hiển thị câu hỏi/trả lời ngay trên kết quả tìm kiếm Google.
+  - `BreadcrumbList`: Định dạng cây điều hướng đa cấp tự động tương thích với siteUrl.
+  - `School / EducationalOrganization`: Tích hợp đầy đủ thông tin pháp lý, địa chỉ, hotline, học bổng và mô tả trường học.
+- **Dynamic Form Sanitization**: Bộ lọc làm sạch đầu vào form chống XSS và HTML Injection (`sanitizeFormSubmission`), hỗ trợ đầy đủ các kiểu input (`select`, `tel`, `checkbox`, `date`, `radio`).
 
 ---
 
@@ -109,7 +114,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 18/18 tests passing (BlockRegistry 8 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, All 8 Registered Block Schemas Validation, End-to-End System Health Contract).*
+*Kết quả: 20/20 tests passing (BlockRegistry 8 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, All 8 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization).*
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu
 ```bash

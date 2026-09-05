@@ -63,3 +63,40 @@ export function buildCourseJsonLd(
   };
 }
 
+/**
+ * Sinh Schema.org cho các câu hỏi thường gặp (FAQPage Rich Snippet)
+ */
+export function buildFaqJsonLd(items: Array<{ question: string; answer: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((it) => ({
+      '@type': 'Question',
+      name: it.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: it.answer,
+      },
+    })),
+  };
+}
+
+/**
+ * Sinh Schema.org cho chuỗi điều hướng phân cấp (BreadcrumbList)
+ */
+export function buildBreadcrumbJsonLd(
+  crumbs: Array<{ name: string; url: string }>,
+  siteUrl = 'https://school.edu.vn'
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((c, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: c.name,
+      item: c.url.startsWith('http') ? c.url : `${siteUrl}${c.url}`,
+    })),
+  };
+}
+

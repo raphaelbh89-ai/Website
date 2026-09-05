@@ -16,7 +16,9 @@
     "@school-cms/database": "workspace:*",
     "@school-cms/forms": "workspace:*",
     "@school-cms/media": "workspace:*",
+    "@school-cms/seo": "workspace:*",
     "@school-cms/shared": "workspace:*",
+    "@school-cms/theme": "workspace:*",
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1"
   },

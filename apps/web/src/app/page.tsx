@@ -1,5 +1,6 @@
 import React from 'react';
 import { Page, ContentStatus } from '@school-cms/shared';
+import { buildSchoolJsonLd, buildFaqJsonLd } from '@school-cms/seo';
 import { DynamicPageRenderer } from '../components/DynamicPageRenderer';
 
 // Trang chủ được nạp dữ liệu từ CMS / Page JSON
@@ -363,5 +364,24 @@ const mockHomePageData: Page = {
 };
 
 export default function HomePage() {
-  return <DynamicPageRenderer page={mockHomePageData} />;
+  const schoolJsonLd = buildSchoolJsonLd(null);
+  const faqBlock = mockHomePageData.sections
+    .flatMap((s) => s.blocks)
+    .find((b) => b.type === 'faq_accordion');
+  const faqItems = (faqBlock?.config as any)?.items || [];
+  const faqJsonLd = buildFaqJsonLd(faqItems);
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schoolJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      <DynamicPageRenderer page={mockHomePageData} />
+    </>
+  );
 }

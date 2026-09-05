@@ -5,6 +5,7 @@ export type FormFieldType =
   | 'number'
   | 'email'
   | 'phone'
+  | 'tel'
   | 'textarea'
   | 'select'
   | 'radio'
@@ -20,7 +21,7 @@ export interface FormField {
   placeholder?: string;
   defaultValue?: string;
   isRequired: boolean;
-  options?: Array<{ label: string; value: string }>;
+  options?: Array<{ label: string; value: string } | string>;
   sortOrder: number;
 }
 

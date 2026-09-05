@@ -18,7 +18,25 @@ export function buildZodSchemaFromFormDefinition(formDef: FormDefinition) {
         validator = z.coerce.number();
         break;
       case 'phone':
-        validator = z.string().regex(/^[0-9+ ]{9,15}$/, 'Số điện thoại không hợp lệ');
+      case 'tel':
+        validator = z.string().regex(/^[0-9+ \-.()]{8,20}$/, 'Số điện thoại không hợp lệ');
+        break;
+      case 'select':
+      case 'radio':
+        if (field.options && field.options.length > 0) {
+          const allowedValues = field.options.map((opt: any) => (typeof opt === 'string' ? opt : opt.value));
+          validator = z.string().refine((val) => allowedValues.includes(val), {
+            message: `Giá trị phải nằm trong danh mục: ${allowedValues.join(', ')}`,
+          });
+        } else {
+          validator = z.string();
+        }
+        break;
+      case 'checkbox':
+        validator = z.boolean();
+        break;
+      case 'date':
+        validator = z.string().regex(/^\d{4}-\d{2}-\d{2}$|^\d{2}\/\d{2}\/\d{4}$/, 'Ngày không đúng định dạng');
         break;
       case 'text':
       case 'textarea':
@@ -39,4 +57,19 @@ export function buildZodSchemaFromFormDefinition(formDef: FormDefinition) {
   }
 
   return z.object(shape);
+}
+
+/**
+ * Làm sạch dữ liệu form (trim khoảng trắng, loại bỏ tag HTML độc hại)
+ */
+export function sanitizeFormSubmission(data: Record<string, any>): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (typeof v === 'string') {
+      clean[k] = v.trim().replace(/<[^>]*>?/gm, '');
+    } else {
+      clean[k] = v;
+    }
+  }
+  return clean;
 }

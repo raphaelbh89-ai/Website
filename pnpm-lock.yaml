@@ -96,9 +96,15 @@ importers:
       '@school-cms/media':
         specifier: workspace:*
         version: link:../../packages/media
+      '@school-cms/seo':
+        specifier: workspace:*
+        version: link:../../packages/seo
       '@school-cms/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@school-cms/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1

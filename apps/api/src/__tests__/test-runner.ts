@@ -10,6 +10,17 @@ import {
 } from '@school-cms/auth';
 import { initialSeedData } from '@school-cms/database';
 import { DEFAULT_TRANSLATIONS, translate } from '@school-cms/shared';
+import {
+  buildSchoolJsonLd,
+  buildArticleJsonLd,
+  buildCourseJsonLd,
+  buildFaqJsonLd,
+  buildBreadcrumbJsonLd,
+} from '@school-cms/seo';
+import {
+  buildZodSchemaFromFormDefinition,
+  sanitizeFormSubmission,
+} from '@school-cms/forms';
 
 async function runTestSuite() {
   console.log('====================================================');
@@ -448,6 +459,88 @@ async function runTestSuite() {
     assert.strictEqual(expectedHealthData.status, 'healthy');
     assert.strictEqual(expectedHealthData.registeredBlocksCount >= 8, true);
     assert.strictEqual(expectedHealthData.database.includes('PostgreSQL 16'), true);
+  });
+
+  // 9. SEO SCHEMA.ORG RICH SNIPPETS & DYNAMIC FORM ENGINE
+  console.log('\n--- 9. SEO Schema.org Rich Snippets & Dynamic Forms Engine ---');
+
+  it('SEO Schema Engine generates valid Schema.org FAQPage and BreadcrumbList structures for Google Rich Results', () => {
+    // Test FAQPage Schema
+    const mockFaqs = [
+      { question: 'Có xe đưa đón không?', answer: 'Có, trường có xe bus đưa đón tận nhà.' },
+      { question: 'Học phí thế nào?', answer: 'Học phí từ 12 triệu/tháng.' },
+    ];
+    const faqSchema = buildFaqJsonLd(mockFaqs);
+    assert.strictEqual(faqSchema['@context'], 'https://schema.org');
+    assert.strictEqual(faqSchema['@type'], 'FAQPage');
+    assert.strictEqual(faqSchema.mainEntity.length, 2);
+    assert.strictEqual(faqSchema.mainEntity[0]['@type'], 'Question');
+    assert.strictEqual(faqSchema.mainEntity[0].name, 'Có xe đưa đón không?');
+    assert.strictEqual(faqSchema.mainEntity[0].acceptedAnswer['@type'], 'Answer');
+    assert.strictEqual(faqSchema.mainEntity[0].acceptedAnswer.text, 'Có, trường có xe bus đưa đón tận nhà.');
+
+    // Test BreadcrumbList Schema
+    const crumbs = [
+      { name: 'Trang Chủ', url: '/' },
+      { name: 'Chương Trình Học', url: '/chuong-trinh-hoc' },
+      { name: 'Cambridge', url: '/chuong-trinh-hoc/cambridge' },
+    ];
+    const breadcrumbSchema = buildBreadcrumbJsonLd(crumbs, 'https://school.edu.vn');
+    assert.strictEqual(breadcrumbSchema['@context'], 'https://schema.org');
+    assert.strictEqual(breadcrumbSchema['@type'], 'BreadcrumbList');
+    assert.strictEqual(breadcrumbSchema.itemListElement.length, 3);
+    assert.strictEqual(breadcrumbSchema.itemListElement[0].position, 1);
+    assert.strictEqual(breadcrumbSchema.itemListElement[0].item, 'https://school.edu.vn/');
+    assert.strictEqual(breadcrumbSchema.itemListElement[2].position, 3);
+    assert.strictEqual(breadcrumbSchema.itemListElement[2].name, 'Cambridge');
+
+    // Test School Schema
+    const schoolSchema = buildSchoolJsonLd(null, 'https://school.edu.vn');
+    assert.strictEqual(schoolSchema['@type'], 'School');
+    assert.ok(schoolSchema.name.includes('Alpha School'));
+  });
+
+  it('Form Schema Builder generates strict dynamic Zod validators for text, email, tel, select, and sanitizes input', () => {
+    const mockFormDef = {
+      id: 'f-test',
+      code: 'tuyen-sinh-test',
+      title: 'Đăng ký test',
+      fields: [
+        { fieldName: 'parentName', label: 'Tên phụ huynh', fieldType: 'text' as const, isRequired: true },
+        { fieldName: 'email', label: 'Email', fieldType: 'email' as const, isRequired: false },
+        { fieldName: 'phone', label: 'Số điện thoại', fieldType: 'phone' as const, isRequired: true },
+        { fieldName: 'grade', label: 'Cấp lớp', fieldType: 'select' as const, isRequired: true, options: ['Lớp 1', 'Lớp 6', 'Lớp 10'] },
+      ],
+    };
+
+    const zodSchema = buildZodSchemaFromFormDefinition(mockFormDef as any);
+
+    // Valid data
+    const validData = {
+      parentName: 'Nguyễn Văn Nam',
+      email: 'nam.nguyen@example.com',
+      phone: '0912345678',
+      grade: 'Lớp 1',
+    };
+    const validParse = zodSchema.safeParse(validData);
+    assert.strictEqual(validParse.success, true);
+
+    // Invalid data: missing required parentName
+    const missingName = { ...validData, parentName: '' };
+    assert.strictEqual(zodSchema.safeParse(missingName).success, false);
+
+    // Invalid data: select value not in options
+    const invalidSelect = { ...validData, grade: 'Đại học' };
+    assert.strictEqual(zodSchema.safeParse(invalidSelect).success, false);
+
+    // Test sanitizeFormSubmission
+    const dirtyData = {
+      parentName: '  <b>Nguyễn Văn Nam</b>  ',
+      phone: '0912 345 678 ',
+    };
+    const sanitized = sanitizeFormSubmission(dirtyData);
+    assert.strictEqual(sanitized.parentName, 'Nguyễn Văn Nam');
+    assert.strictEqual(sanitized.phone, '0912 345 678');
   });
 
   console.log('\n====================================================');

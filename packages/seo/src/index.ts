@@ -41,3 +41,25 @@ export function buildArticleJsonLd(article: Article, siteUrl = 'https://school.e
     },
   };
 }
+
+/**
+ * Sinh Schema.org cho Chương trình học (Course)
+ */
+export function buildCourseJsonLd(
+  course: { title: string; overview: string; slug: string },
+  siteUrl = 'https://school.edu.vn'
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Course',
+    name: course.title,
+    description: course.overview,
+    url: `${siteUrl}/chuong-trinh-hoc/${course.slug}`,
+    provider: {
+      '@type': 'School',
+      name: 'Hệ thống Trường Quốc tế Song ngữ Alpha School',
+      url: siteUrl,
+    },
+  };
+}
+

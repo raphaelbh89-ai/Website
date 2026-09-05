@@ -50,7 +50,7 @@ export default function AdminDashboard() {
   // Current user role switcher for testing RBAC
   const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'audit'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'audit' | 'analytics'>('pages');
 
   // Page state
   const [blocks, setBlocks] = useState<BlockItem[]>([
@@ -464,15 +464,15 @@ export default function AdminDashboard() {
           </button>
 
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">
-            Bảo mật & Giám sát
+            Hiệu suất & Thống kê
           </div>
           <button
-            onClick={() => setActiveTab('audit')}
+            onClick={() => setActiveTab('analytics')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-              activeTab === 'audit' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              activeTab === 'analytics' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
             }`}
           >
-            <span>🛡️</span> Nhật ký Audit Logs ({auditLogs.length})
+            <span>📊</span> Báo cáo Phân tích ({leads.length} leads)
           </button>
         </nav>
 
@@ -527,6 +527,7 @@ export default function AdminDashboard() {
               {activeTab === 'forms' && 'Trình Thiết Kế Biểu Mẫu Động (Dynamic Form Builder)'}
               {activeTab === 'media' && 'Thư Viện Tệp Tin Đa Phương Tiện (Media Asset Hub)'}
               {activeTab === 'audit' && 'Nhật Ký Kiểm Toán & Giám Sát Hệ Thống (Audit Logs)'}
+              {activeTab === 'analytics' && 'Báo Cáo Hiệu Suất Tuyển Sinh & Lưu Lượng (Analytics)'}
             </h2>
           </div>
 
@@ -1382,6 +1383,147 @@ export default function AdminDashboard() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 9: ANALYTICS & REPORTS */}
+        {activeTab === 'analytics' && (
+          <div className="flex-1 p-8 overflow-y-auto">
+            <div className="max-w-6xl mx-auto space-y-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Báo Cáo Hiệu Suất Tuyển Sinh & Phễu Chuyển Đổi</h3>
+                  <p className="text-sm text-slate-500">
+                    Thống kê trực quan dòng dữ liệu phụ huynh từ Landing page, chiến dịch tuyển sinh và tỉ lệ nhập học.
+                  </p>
+                </div>
+                <span className="text-xs bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200 px-3 py-1.5 rounded-lg">
+                  Cập nhật thời gian thực
+                </span>
+              </div>
+
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <span className="text-xs text-slate-500 font-semibold block mb-1">Tổng Hồ Sơ Tuyển Sinh</span>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-3xl font-black text-slate-900">128</span>
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">+24.5%</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">So với cùng kỳ niên khóa 2024</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <span className="text-xs text-slate-500 font-semibold block mb-1">Tỷ Lệ Chuyển Đổi Nhập Học</span>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-3xl font-black text-emerald-700">35.8%</span>
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">+4.2%</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">Vượt chỉ tiêu ban đầu (30%)</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <span className="text-xs text-slate-500 font-semibold block mb-1">Thời Gian Phản Hồi Tư Vấn</span>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-3xl font-black text-slate-900">18 phút</span>
+                    <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">Rất nhanh</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">Cam kết dưới 2h làm việc</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <span className="text-xs text-slate-500 font-semibold block mb-1">Doanh Số Học Phí Dự Kiến</span>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-3xl font-black text-slate-900">14.6 Tỷ</span>
+                    <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Niên khóa mới</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">Đã hoàn tất thanh toán đợt 1</p>
+                </div>
+              </div>
+
+              {/* Conversion Funnel & Campus Share */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Funnel */}
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                  <h4 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-3">
+                    Phễu Chuyển Đổi Tuyển Sinh (Admissions Pipeline)
+                  </h4>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <div className="flex justify-between font-semibold mb-1">
+                        <span>1. Điền Form Nộp Hồ Sơ</span>
+                        <span className="text-slate-600">128 hồ sơ (100%)</span>
+                      </div>
+                      <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-600 rounded-full w-full"></div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between font-semibold mb-1">
+                        <span>2. Chuyên Viên Đã Liên Hệ Tư Vấn</span>
+                        <span className="text-slate-600">98 hồ sơ (76.5%)</span>
+                      </div>
+                      <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full w-[76.5%]"></div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between font-semibold mb-1">
+                        <span>3. Tham Gia Khảo Sát & Tham Quan</span>
+                        <span className="text-slate-600">62 học sinh (48.4%)</span>
+                      </div>
+                      <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-500 rounded-full w-[48.4%]"></div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between font-semibold mb-1">
+                        <span>4. Hoàn Tất Đóng Phí & Nhập Học</span>
+                        <span className="text-emerald-700 font-bold">46 học sinh (35.9%)</span>
+                      </div>
+                      <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-700 rounded-full w-[35.9%]"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Campus Share */}
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                  <h4 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-3">
+                    Tỷ Trọng Hồ Sơ Theo Hệ Thống Cơ Sở
+                  </h4>
+                  <div className="space-y-4 text-xs">
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="w-3 h-3 rounded-full bg-emerald-600"></span>
+                        <span className="font-semibold text-slate-800">Cơ sở Biên Hòa (Đồng Nai)</span>
+                      </div>
+                      <span className="font-bold text-slate-900">58 hồ sơ (45.3%)</span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="w-3 h-3 rounded-full bg-blue-600"></span>
+                        <span className="font-semibold text-slate-800">Cơ sở TP. Thủ Đức (TP. HCM)</span>
+                      </div>
+                      <span className="font-bold text-slate-900">42 hồ sơ (32.8%)</span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="w-3 h-3 rounded-full bg-amber-600"></span>
+                        <span className="font-semibold text-slate-800">Cơ sở Bình Dương (Thủ Dầu Một)</span>
+                      </div>
+                      <span className="font-bold text-slate-900">28 hồ sơ (21.9%)</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

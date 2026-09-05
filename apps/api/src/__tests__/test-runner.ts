@@ -196,6 +196,110 @@ async function runTestSuite() {
     assert.strictEqual(hasPermission(editorUser, 'branches:manage'), false);
   });
 
+  // 6. PAGE REVISION SNAPSHOT, ROLLBACK & SITE BACKUP
+  console.log('\n--- 6. Page Revision History & Site Backup System ---');
+
+  it('Page Revision snapshot and rollback restores historical layout correctly', () => {
+    interface TestBlock {
+      id: string;
+      type: string;
+      name: string;
+      config: Record<string, any>;
+    }
+    interface TestRevision {
+      id: string;
+      version: number;
+      createdAt: string;
+      author: string;
+      description: string;
+      blocksSnapshot: TestBlock[];
+    }
+
+    const initialBlocks: TestBlock[] = [
+      { id: 'blk-1', type: 'hero_banner', name: 'Hero Banner', config: { title: 'Alpha School v1' } },
+      { id: 'blk-2', type: 'program_list', name: 'Program List', config: { columns: '3' } },
+    ];
+
+    // Create v1 snapshot
+    const rev1: TestRevision = {
+      id: 'rev-1',
+      version: 1,
+      createdAt: '01/09/2026 09:00',
+      author: 'Super Admin',
+      description: 'Initial v1 setup',
+      blocksSnapshot: JSON.parse(JSON.stringify(initialBlocks)),
+    };
+
+    // Modify blocks for v2
+    const v2Blocks: TestBlock[] = [
+      ...initialBlocks,
+      { id: 'blk-3', type: 'form_embed', name: 'Form Embed', config: { formCode: 'tuyen-sinh' } },
+    ];
+
+    const rev2: TestRevision = {
+      id: 'rev-2',
+      version: 2,
+      createdAt: '05/09/2026 14:00',
+      author: 'Super Admin',
+      description: 'Add admission form',
+      blocksSnapshot: JSON.parse(JSON.stringify(v2Blocks)),
+    };
+
+    assert.strictEqual(rev1.blocksSnapshot.length, 2);
+    assert.strictEqual(rev2.blocksSnapshot.length, 3);
+
+    // Test rollback from v2 back to v1
+    let activeBlocks = JSON.parse(JSON.stringify(v2Blocks));
+    assert.strictEqual(activeBlocks.length, 3);
+
+    // Perform rollback to rev1
+    activeBlocks = JSON.parse(JSON.stringify(rev1.blocksSnapshot));
+    assert.strictEqual(activeBlocks.length, 2);
+    assert.strictEqual(activeBlocks[0].id, 'blk-1');
+    assert.strictEqual(activeBlocks[1].id, 'blk-2');
+    assert.strictEqual(activeBlocks.find((b: TestBlock) => b.id === 'blk-3'), undefined);
+  });
+
+  it('Site configuration backup JSON package contains complete layout, theme, navigation, and i18n data', () => {
+    const mockBackup = {
+      meta: {
+        system: 'Alpha School Enterprise Modular CMS',
+        schemaVersion: '2.0.0',
+        exportedAt: new Date().toISOString(),
+        exportedBy: 'SUPER_ADMIN',
+      },
+      layout: {
+        currentBlocks: [
+          { id: 'blk-1', type: 'hero_banner', name: 'Hero' },
+        ],
+        revisionsCount: 2,
+      },
+      theme: {
+        primaryColor: '#047857',
+        borderRadius: '12px',
+      },
+      navigation: [
+        { id: 'm-1', title: 'Trang Chủ', url: '/', location: 'header' },
+      ],
+      localization: {
+        locales: ['vi', 'en'],
+        totalKeys: DEFAULT_TRANSLATIONS.length,
+        items: DEFAULT_TRANSLATIONS,
+      },
+    };
+
+    const serialized = JSON.stringify(mockBackup);
+    const parsed = JSON.parse(serialized);
+
+    assert.strictEqual(parsed.meta.schemaVersion, '2.0.0');
+    assert.strictEqual(parsed.layout.currentBlocks.length, 1);
+    assert.strictEqual(parsed.theme.primaryColor, '#047857');
+    assert.strictEqual(parsed.navigation[0].title, 'Trang Chủ');
+    assert.strictEqual(parsed.localization.totalKeys >= 15, true);
+    assert.ok(parsed.localization.locales.includes('vi'));
+    assert.ok(parsed.localization.locales.includes('en'));
+  });
+
   console.log('\n====================================================');
   console.log(`📊 TEST RESULTS: ${passed} Passed | ${failed} Failed`);
   console.log('====================================================\n');

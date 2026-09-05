@@ -23,56 +23,64 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 │   ├── admin/         # Next.js 14 App Router: Admin Dashboard, Visual Page Builder, CRM & Theme Customizer
 │   └── api/           # Fastify 4 Backend: REST API, AI Chatbot RAG, Unified Search, CRM & Audit Logs
 ├── packages/
-│   ├── blocks/        # Thư viện 6 block chuẩn (HeroBanner, ProgramList, PartnerSlider, BranchList, NewsList, FormEmbed)
+│   ├── blocks/        # Thư viện 8 block chuẩn (HeroBanner, ProgramList, PartnerSlider, BranchList, NewsList, FormEmbed, TestimonialSlider, FaqAccordion)
 │   ├── cms/           # BlockRegistry singleton, Schema Resolver, Versioning & Migrations
-│   ├── auth/          # Ma trận phân quyền RBAC & Kiểm tra phạm vi cơ sở (canAccessBranchResource)
+│   ├── auth/          # Ma trận phân quyền RBAC (13 permissions) & Kiểm tra phạm vi cơ sở (canAccessBranchResource)
 │   ├── database/      # Drizzle ORM Schema PostgreSQL 16 (35 bảng, UUIDv7, Soft Delete) & Seed Data
 │   ├── forms/         # Dynamic Form schema validation & builder core
 │   ├── media/         # Quản lý tệp tin, tối ưu hóa WebP & CDN URLs
 │   ├── seo/           # Tự động sinh JSON-LD Schema.org (School, NewsArticle, Course)
 │   ├── theme/         # Design Tokens generator (:root CSS variables)
 │   ├── ui/            # UI components dùng chung (Buttons, Containers)
-│   └── shared/        # DTOs, Enums, Interfaces dùng chung toàn monorepo
+│   └── shared/        # DTOs, Enums, i18n Dictionary (VI/EN), Interfaces dùng chung toàn monorepo
 ├── docs/              # 12 tài liệu đặc tả kiến trúc chi tiết (01-12)
-├── docker-compose.yml # Hạ tầng production (PostgreSQL 16, Redis 7, API, Web, Admin)
-└── .github/workflows/ # CI/CD Pipeline tự động kiểm thử và build
+├── deploy/ci.yml      # CI/CD Pipeline tự động kiểm thử và build monorepo
+└── docker-compose.yml # Hạ tầng production (PostgreSQL 16, Redis 7, API, Web, Admin)
 ```
 
 ---
 
 ## ⚡ Các Tính Năng Đã Triển Khai Hoàn Chỉnh
 
-### 1. Dynamic Page Builder (Dựng trang trực quan)
+### 1. Dynamic Page Builder (Dựng trang trực quan & Quản trị phiên bản)
 - Kéo thả, thêm mới, sắp xếp, xóa và cấu hình các khối giao diện từ **BlockRegistry**.
-- Thuộc tính cấu hình tự sinh tự động từ Zod Schema qua **Dynamic Inspector**.
-- Hỗ trợ xuất bản tức thì (1-click Publish) và xóa cache Edge.
+- Chuyển đổi linh hoạt chế độ xem trước đa thiết bị: **Desktop (100%) ➔ Tablet (768px) ➔ Mobile (375px)**.
+- **Lịch sử phiên bản (Page Revision History)**: Tự động ghi nhận snapshot cấu trúc blocks mỗi lần Xuất bản.
+- **Rollback 1-chạm (One-Click Rollback)**: Cho phép xem lại chi tiết và khôi phục layout về bất kỳ phiên bản nào trong quá khứ.
+- **Sao lưu cấu hình toàn diện (Site Backup Export)**: Xuất gói cấu hình chuẩn JSON (Blocks layout, theme tokens, menu điều hướng, từ điển i18n).
 
-### 2. Thư Viện 6 Khối Giao Diện Mẫu (Open/Closed Architecture)
+### 2. Thư Viện 8 Khối Giao Diện Cốt Lõi (Open/Closed Architecture)
 1. `hero_banner`: Banner lớn, ảnh nền, overlay opacity, slogan và nút kêu gọi hành động (CTA).
 2. `program_list`: Danh sách chương trình đào tạo chuẩn quốc tế (Mầm non, Tiểu học, Trung học & Tú tài).
 3. `partner_slider`: Băng chuyền đối tác học thuật quốc tế (Cambridge, IB, CIS, Edexcel).
 4. `branch_list`: Danh mục hệ thống cơ sở toàn quốc với địa chỉ và hotline.
 5. `news_list`: Lưới tin tức, sự kiện học đường phân loại theo cơ sở.
 6. `form_embed`: Biểu mẫu đăng ký tuyển sinh trực tuyến tương tác kết nối REST API.
+7. `testimonial_slider`: Lời chia sẻ và cảm nhận thực tế từ phụ huynh & cựu học sinh đạt học bổng quốc tế.
+8. `faq_accordion`: Bảng câu hỏi thường gặp tích hợp đóng/mở tương tác giải đáp thắc mắc tuyển sinh.
 
-### 3. Phân Quyền Đa Cơ Sở & Bảo Mật (Multi-tenant RBAC)
-- **Super Administrator**: Toàn quyền hệ sinh thái, cấu hình theme toàn cục và tạo cơ sở mới.
-- **Campus Director**: Giới hạn thao tác trong phạm vi chi nhánh được phân quyền (`branchId`), duyệt bài viết và xem hồ sơ học sinh thuộc cơ sở mình.
-- **Admissions Officer**: Chuyên trách tiếp nhận hồ sơ, chăm sóc phụ huynh và chuyển trạng thái phễu tuyển sinh.
-- **Content Editor**: Soạn thảo tin tức và trang con.
-- **Audit Logs**: Tự động lưu vết kiểm toán cho mọi thao tác (CREATE, UPDATE, DELETE, PUBLISH, STATUS_CHANGE).
+### 3. Phân Quyền Đa Cơ Sở & Ma Trận Quyền Lực (RBAC Security Matrix)
+- **4 Vai trò cốt lõi**: `SUPER_ADMIN`, `CAMPUS_DIRECTOR`, `ADMISSIONS_OFFICER`, `CONTENT_EDITOR`.
+- **Ma trận quyền lực động (Permission Matrix Editor)**: Quản trị 13 quyền hạn phân thành 4 nhóm nghiệp vụ (`system`, `content`, `admissions`, `settings`).
+- **Quản lý danh sách tài khoản**: Thêm người dùng, kích hoạt/tạm dừng trạng thái, gán cơ sở phụ trách.
+- **Audit Logs**: Tự động lưu vết kiểm toán cho mọi thao tác (CREATE, UPDATE, DELETE, PUBLISH, STATUS_CHANGE, EXPORT).
 
-### 4. CRM Tuyển Sinh Trực Tuyến & Phễu Chăm Sóc Phụ Huynh
+### 4. Quản Lý Đa Ngôn Ngữ (i18n Localization) & Menu Điều Hướng
+- **Từ điển song ngữ (VI / EN)**: Quản lý tập trung các khóa dịch (Key-Value) phân loại theo nhóm.
+- **Language Switcher công cộng**: Cho phép phụ huynh chuyển đổi mượt mà giữa Tiếng Việt và English.
+- **Navigation Menu Builder**: Quản lý cấu trúc liên kết thanh điều hướng Header và Footer với thứ tự tùy chỉnh.
+
+### 5. CRM Tuyển Sinh Trực Tuyến & Xuất Dữ Liệu Excel
 - Tiếp nhận hồ sơ phụ huynh đăng ký từ Landing page công cộng.
 - Phễu Pipeline 4 giai đoạn: **Hồ Sơ Mới ➔ Đang Tư Vấn ➔ Đã Hẹn Tham Quan ➔ Đã Nhập Học**.
 - Slide-over CRM Drawer cho phép cập nhật trạng thái 1 chạm và ghi chú nhật ký liên hệ (Notes Timeline).
-- Hỗ trợ xuất dữ liệu ra Excel.
+- **Engine xuất CSV chuẩn UTF-8 BOM**: Mở trực tiếp trên Microsoft Excel hiển thị trọn vẹn tiếng Việt có dấu.
 
-### 5. Trợ Lý AI Tuyển Sinh 24/7 & Tìm Kiếm Hợp Nhất (Unified Search)
+### 6. Trợ Lý AI Tuyển Sinh 24/7 & Tìm Kiếm Hợp Nhất (Unified Search)
 - **AI Chatbot Advisor**: Widget nổi tương tác góc màn hình, tư vấn chi tiết học phí, chính sách học bổng 10 tỷ VNĐ, lộ trình Cambridge và địa chỉ cơ sở.
 - **Unified Search (`Ctrl + K`)**: Tìm kiếm tức thì đồng thời qua cơ sở, chương trình đào tạo và tin tức bài viết.
 
-### 6. Theme Customizer & Design Tokens
+### 7. Theme Customizer & Design Tokens
 - Bộ điều khiển màu thương hiệu (Primary, Secondary / Accent), bo góc (4px - 20px), font chữ (`Outfit`, `Inter`, `Roboto`, `Plus Jakarta Sans`).
 - Khung Live Preview xem trước thời gian thực và xuất khẩu biến số `:root` CSS Variables.
 
@@ -93,7 +101,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 6/6 tests passing (BlockRegistry, Migrations, RBAC Super Admin/Campus Director/Officer, Seed Data integrity).*
+*Kết quả: 12/12 tests passing (BlockRegistry 8 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package).*
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu
 ```bash

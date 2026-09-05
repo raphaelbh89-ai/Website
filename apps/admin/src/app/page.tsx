@@ -13,6 +13,15 @@ interface BlockItem {
   config: Record<string, any>;
 }
 
+interface PageRevision {
+  id: string;
+  version: number;
+  createdAt: string;
+  author: string;
+  description: string;
+  blocksSnapshot: BlockItem[];
+}
+
 interface FormFieldItem {
   id: string;
   name: string;
@@ -121,6 +130,95 @@ export default function AdminDashboard() {
   const [selectedBlockId, setSelectedBlockId] = useState<string>('blk-1');
   const [isPublished, setIsPublished] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Page revisions & rollback history
+  const [revisions, setRevisions] = useState<PageRevision[]>([
+    {
+      id: 'rev-2',
+      version: 2,
+      createdAt: '05/09/2026 14:35',
+      author: 'Super Admin',
+      description: 'Tích hợp Form Đăng ký Tuyển sinh & Cập nhật Hero Banner',
+      blocksSnapshot: [
+        {
+          id: 'blk-1',
+          type: 'hero_banner',
+          name: 'Hero Banner Lớn',
+          config: {
+            title: 'Khát Vọng Vươn Tầm Cùng Alpha School',
+            subtitle: 'Môi trường giáo dục liên cấp song ngữ chuẩn quốc tế',
+            primaryButtonText: 'Đăng ký nhận học bổng',
+          },
+        },
+        {
+          id: 'blk-2',
+          type: 'program_list',
+          name: 'Danh sách Chương trình đào tạo',
+          config: {
+            title: 'Chương Trình Đào Tạo Chuẩn Quốc Tế',
+            columns: '3',
+          },
+        },
+        {
+          id: 'blk-3',
+          type: 'branch_list',
+          name: 'Danh sách Cơ sở',
+          config: {
+            title: 'Hệ Thống Các Cơ Sở Toàn Quốc',
+          },
+        },
+        {
+          id: 'blk-4',
+          type: 'form_embed',
+          name: 'Form Tuyển Sinh & Liên Hệ',
+          config: {
+            title: 'Đăng Ký Tư Vấn Tuyển Sinh 2025 - 2026',
+            subtitle: 'Nhận cẩm nang tuyển sinh và học bổng lên tới 50%',
+            formCode: 'tuyen-sinh-2025',
+            submitButtonText: 'Gửi thông tin đăng ký',
+          },
+        },
+      ],
+    },
+    {
+      id: 'rev-1',
+      version: 1,
+      createdAt: '01/09/2026 09:00',
+      author: 'Super Admin',
+      description: 'Khởi tạo cấu trúc trang chủ sơ khai (3 blocks cốt lõi)',
+      blocksSnapshot: [
+        {
+          id: 'blk-1',
+          type: 'hero_banner',
+          name: 'Hero Banner Lớn',
+          config: {
+            title: 'Alpha School: Kiến Tạo Tương Lai',
+            subtitle: 'Hệ thống giáo dục tiên phong công nghệ',
+            primaryButtonText: 'Khám phá ngay',
+          },
+        },
+        {
+          id: 'blk-2',
+          type: 'program_list',
+          name: 'Danh sách Chương trình đào tạo',
+          config: {
+            title: 'Các Bậc Học Toàn Diện',
+            columns: '3',
+          },
+        },
+        {
+          id: 'blk-3',
+          type: 'branch_list',
+          name: 'Danh sách Cơ sở',
+          config: {
+            title: 'Mạng Lưới Trường Học Toàn Quốc',
+          },
+        },
+      ],
+    },
+  ]);
+  const [showRevisionModal, setShowRevisionModal] = useState(false);
+  const [inspectRevision, setInspectRevision] = useState<PageRevision | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -340,10 +438,92 @@ export default function AdminDashboard() {
   };
 
   const handlePublish = () => {
+    const nextVer = revisions.length > 0 ? Math.max(...revisions.map((r) => r.version)) + 1 : 1;
+    const authorName = currentRole === 'SUPER_ADMIN' ? 'Super Admin' : currentRole === 'CAMPUS_DIRECTOR' ? 'Campus Director' : 'Admissions Officer';
+    const newRev: PageRevision = {
+      id: `rev-${Date.now()}`,
+      version: nextVer,
+      createdAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+      author: authorName,
+      description: `Xuất bản trang chủ phiên bản v${nextVer} (${blocks.length} blocks)`,
+      blocksSnapshot: JSON.parse(JSON.stringify(blocks)),
+    };
+
+    setRevisions([newRev, ...revisions]);
     setIsPublished(true);
-    addAuditLog({ action: 'PUBLISH', entityType: 'PAGE', entityTitle: 'Trang Chủ Alpha School', details: 'Xuất bản và đẩy Edge Cache' });
-    showToast('Xuất bản thành công! Nội dung đã sẵn sàng trên toàn hệ thống.');
+    addAuditLog({
+      action: 'PUBLISH',
+      entityType: 'PAGE',
+      entityTitle: 'Trang Chủ Alpha School',
+      details: `Xuất bản v${nextVer} (${blocks.length} blocks) và lưu trữ snapshot`,
+    });
+    showToast(`Xuất bản v${nextVer} thành công! Snapshot phiên bản đã được lưu trữ an toàn.`);
     setTimeout(() => setIsPublished(false), 3000);
+  };
+
+  const handleRollbackRevision = (rev: PageRevision) => {
+    if (!confirm(`Bạn có chắc muốn khôi phục trang về phiên bản v${rev.version} (tạo bởi ${rev.author} lúc ${rev.createdAt})?`)) {
+      return;
+    }
+    const clonedBlocks: BlockItem[] = JSON.parse(JSON.stringify(rev.blocksSnapshot));
+    setBlocks(clonedBlocks);
+    if (clonedBlocks.length > 0) {
+      setSelectedBlockId(clonedBlocks[0].id);
+    }
+    addAuditLog({
+      action: 'UPDATE',
+      entityType: 'PAGE',
+      entityTitle: 'Trang Chủ Alpha School',
+      details: `Rollback về phiên bản v${rev.version} (${clonedBlocks.length} blocks)`,
+    });
+    setShowRevisionModal(false);
+    setInspectRevision(null);
+    showToast(`Đã khôi phục thành công giao diện về phiên bản v${rev.version}!`);
+  };
+
+  const handleExportSiteBackup = () => {
+    const backupData = {
+      meta: {
+        system: 'Alpha School Enterprise Modular CMS',
+        schemaVersion: '2.0.0',
+        exportedAt: new Date().toISOString(),
+        exportedBy: currentRole,
+      },
+      layout: {
+        currentBlocks: blocks,
+        revisionsCount: revisions.length,
+        revisions: revisions,
+      },
+      theme: themeTokens,
+      navigation: menuItems,
+      localization: {
+        locales: ['vi', 'en'],
+        totalKeys: translations.length,
+        items: translations,
+      },
+      contentCounts: {
+        branches: branches.length,
+        articles: articles.length,
+        leads: leads.length,
+        users: userAccounts.length,
+      },
+    };
+
+    const jsonString = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', jsonString);
+    downloadAnchor.setAttribute('download', `alpha-school-site-backup-${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+
+    addAuditLog({
+      action: 'EXPORT',
+      entityType: 'PAGE',
+      entityTitle: 'Toàn Bộ Cấu Hình Hệ Thống',
+      details: `Xuất tệp JSON Backup toàn diện (${blocks.length} blocks, ${menuItems.length} menu items, ${translations.length} translations)`,
+    });
+    showToast('Đã xuất tệp JSON sao lưu cấu hình toàn bộ trang web thành công!');
   };
 
   const handleSaveBranch = () => {
@@ -846,12 +1026,35 @@ export default function AdminDashboard() {
             </a>
 
             {activeTab === 'pages' && (
-              <button
-                onClick={handlePublish}
-                className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
-              >
-                🚀 Xuất Bản (Publish)
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowRevisionModal(true)}
+                  className="px-3.5 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 shadow-sm"
+                  title="Xem lịch sử và khôi phục các phiên bản đã xuất bản"
+                >
+                  <span>📜</span>
+                  <span>Phiên Bản</span>
+                  <span className="bg-slate-200 text-slate-700 text-xs px-1.5 py-0.5 rounded-full font-bold">
+                    {revisions.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={handleExportSiteBackup}
+                  className="px-3.5 py-2 border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 shadow-sm"
+                  title="Sao lưu toàn bộ cấu hình trang, blocks, theme, menu và từ điển ra JSON"
+                >
+                  <span>💾</span>
+                  <span>Sao Lưu JSON</span>
+                </button>
+
+                <button
+                  onClick={handlePublish}
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
+                >
+                  🚀 Xuất Bản (Publish)
+                </button>
+              </div>
             )}
           </div>
         </header>
@@ -2706,6 +2909,151 @@ export default function AdminDashboard() {
               <button
                 onClick={() => setSelectedLead(null)}
                 className="px-5 py-2 bg-slate-800 text-white rounded-lg text-xs font-semibold hover:bg-slate-900"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: LỊCH SỬ PHIÊN BẢN & ROLLBACK (PAGE REVISION HISTORY) */}
+      {showRevisionModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[85vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shadow-sm">
+                  📜
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Lịch Sử Phiên Bản & Rollback Trang</h3>
+                  <p className="text-xs text-slate-500">
+                    Mỗi lần bấm &ldquo;Xuất Bản&rdquo;, hệ thống tự động lưu snapshot blocks layout để khôi phục bất cứ lúc nào
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowRevisionModal(false);
+                  setInspectRevision(null);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+              {revisions.map((rev) => {
+                const isCurrent =
+                  blocks.length === rev.blocksSnapshot.length &&
+                  blocks.every((b, i) => b.id === rev.blocksSnapshot[i]?.id);
+                const isInspecting = inspectRevision?.id === rev.id;
+
+                return (
+                  <div
+                    key={rev.id}
+                    className={`border rounded-xl p-4 transition-all ${
+                      isCurrent
+                        ? 'border-emerald-500 bg-emerald-50/40 shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                              isCurrent
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-slate-800 text-white'
+                            }`}
+                          >
+                            v{rev.version}
+                          </span>
+                          {isCurrent && (
+                            <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                              ● Đang áp dụng hiện tại
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-400 font-medium">
+                            🕒 {rev.createdAt}
+                          </span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-800">
+                          {rev.description}
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-slate-500">
+                          <span>Tác giả: <strong className="text-slate-700">{rev.author}</strong></span>
+                          <span>•</span>
+                          <span>Snapshot: <strong className="text-slate-700">{rev.blocksSnapshot.length} blocks</strong></span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setInspectRevision(isInspecting ? null : rev)}
+                          className="px-3 py-1.5 border border-slate-300 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-100 transition-colors"
+                        >
+                          {isInspecting ? 'Ẩn chi tiết' : '🔍 Xem blocks'}
+                        </button>
+                        {!isCurrent && (
+                          <button
+                            onClick={() => handleRollbackRevision(rev)}
+                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1"
+                          >
+                            <span>↺</span> Khôi phục
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Block inspection accordion */}
+                    {isInspecting && (
+                      <div className="mt-4 pt-3 border-t border-slate-200 bg-slate-50 rounded-lg p-3 space-y-2 text-xs">
+                        <p className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
+                          Danh sách blocks trong snapshot phiên bản v{rev.version}:
+                        </p>
+                        <div className="space-y-1.5">
+                          {rev.blocksSnapshot.map((b, idx) => (
+                            <div
+                              key={b.id || idx}
+                              className="flex items-center justify-between bg-white border border-slate-200 px-3 py-2 rounded-lg"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-slate-400 text-[10px]">#{idx + 1}</span>
+                                <span className="font-semibold text-slate-800">{b.name}</span>
+                                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
+                                  {b.type}
+                                </span>
+                              </div>
+                              <span className="text-slate-500 text-[11px] truncate max-w-[220px]">
+                                {b.config.title || b.config.subtitle || 'Không có tiêu đề'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                Tổng cộng <strong>{revisions.length}</strong> phiên bản snapshot trong lịch sử
+              </span>
+              <button
+                onClick={() => {
+                  setShowRevisionModal(false);
+                  setInspectRevision(null);
+                }}
+                className="px-5 py-2 bg-slate-800 text-white rounded-lg text-xs font-semibold hover:bg-slate-900 transition-colors"
               >
                 Đóng
               </button>

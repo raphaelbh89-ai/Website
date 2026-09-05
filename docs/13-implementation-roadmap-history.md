@@ -32,7 +32,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 22** | Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN & 50 Tests | Hoàn thành | `77fec7a` |
 | **Phase 23** | Cổng Phụ Huynh & Sổ Liên Lạc Điện Tử `@school-cms/portal`, Scoping Guard, Điểm Danh & 55 Tests | Hoàn thành | `55ea9a0` |
 | **Phase 24** | Phân Vùng CSDL Database Partitioning, Cắt Tỉa Truy Vấn & Vòng Đời Lưu Trữ 50 Cơ Sở & 60 Tests | Hoàn thành | `73f2074` |
-| **Phase 25** | Đóng Gói Multi-Container Production, OWASP Security Headers, Runbook Vận Hành & 65 Tests (Golden Master Release) | Hoàn thành | `v1.0.0` |
+| **Phase 25** | Đóng Gói Multi-Container Production, OWASP Security Headers, Runbook Vận Hành & 65 Tests (Golden Master Release) | Hoàn thành | `f69851b` |
 
 ---
 

@@ -30,7 +30,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 20** | Package Trợ Lý AI Tuyển Sinh RAG `@school-cms/ai-chatbot`, Sổ Tay Tri Thức Đa Cơ Sở, Sandbox Console & 40 Tests | Hoàn thành | `a5b9637` |
 | **Phase 21** | Đa Cơ Sở Hybrid Subdomain Routing, Scoped Theming, Xem Trước Bảo Mật HMAC & So Sánh Snapshot Diff & 45 Tests | Hoàn thành | `ee74d60` |
 | **Phase 22** | Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN & 50 Tests | Hoàn thành | `77fec7a` |
-| **Phase 23** | Cổng Phụ Huynh & Sổ Liên Lạc Điện Tử `@school-cms/portal`, Scoping Guard, Điểm Danh & 55 Tests | Hoàn thành | `Đang cập nhật` |
+| **Phase 23** | Cổng Phụ Huynh & Sổ Liên Lạc Điện Tử `@school-cms/portal`, Scoping Guard, Điểm Danh & 55 Tests | Hoàn thành | `55ea9a0` |
 
 ---
 
@@ -272,7 +272,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/api/src/__tests__/test-runner.ts`:
     - Bổ sung Section 19 với 5 bài kiểm thử tự động chuyên sâu (Tests 46 - 50) nâng tổng số lên **50 tests passing 100%**.
 
-### Phase 23: Cổng Thông Tin Phụ Huynh & Sổ Liên Lạc Điện Tử `@school-cms/portal`, Scoping Guard, Điểm Danh Chuyên Cần & Bảng Điểm GPA (Commit: Đang cập nhật)
+### Phase 23: Cổng Thông Tin Phụ Huynh & Sổ Liên Lạc Điện Tử `@school-cms/portal`, Scoping Guard, Điểm Danh Chuyên Cần & Bảng Điểm GPA (Commit: `55ea9a0`)
 - **Tài liệu tham chiếu**:
   - `docs/12-architecture-decisions.md` Giai đoạn 3 Mục 3: Cổng thông tin Phụ huynh (Parent Portal: xem điểm, thời khóa biểu, chuyên cần).
   - `docs/11-extensibility.md` Section 11.4 Câu hỏi 4: Thiết kế Cổng Phụ huynh / Sổ liên lạc điện tử không làm xáo trộn kiến trúc phân quyền cũ, kế thừa `RoleCode.PARENT` và `RoleCode.STUDENT`, bảo vệ tính riêng tư tuyệt đối qua cơ chế Parent-Student Scoping Guard (`parent_students`).
@@ -327,7 +327,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 
 
 ## 📌 Các File Nơi Lưu Lại Toàn Bộ Tiến Trình
-1. **Mã nguồn Git trên GitHub**: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git) (nhánh `main`) - Lưu vết đầy đủ 19 commits lịch sử.
+1. **Mã nguồn Git trên GitHub**: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git) (nhánh `main`) - Lưu vết đầy đủ 20 commits lịch sử.
 2. **File tài liệu lộ trình**: [docs/13-implementation-roadmap-history.md](file:///c:/Users/Dathu/OneDrive/Documents/Website/docs/13-implementation-roadmap-history.md).
 3. **File giới thiệu & hướng dẫn chính**: [README.md](file:///c:/Users/Dathu/OneDrive/Documents/Website/README.md) (ghi nhận đầy đủ tính năng qua các phase và kết quả kiểm thử).
 4. **File nhật ký kiểm thử & xác thực**: [walkthrough.md](file:///C:/Users/Dathu/.gemini/antigravity-ide/brain/7e8a3993-9ef7-45f8-8504-5c9fd9cbb747/walkthrough.md).

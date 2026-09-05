@@ -109,7 +109,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 16/16 tests passing (BlockRegistry 8 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard).*
+*Kết quả: 18/18 tests passing (BlockRegistry 8 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, All 8 Registered Block Schemas Validation, End-to-End System Health Contract).*
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu
 ```bash

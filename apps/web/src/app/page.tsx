@@ -240,6 +240,125 @@ const mockHomePageData: Page = {
         },
       ],
     },
+    {
+      id: 'sec-testimonials',
+      pageId: 'page-home',
+      name: 'Ý kiến phụ huynh & Cựu học sinh',
+      sortOrder: 6,
+      isVisible: true,
+      settings: {
+        layout: { width: 'container' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-testimonials',
+          type: 'testimonial_slider',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: {
+            title: 'Chia Sẻ Của Phụ Huynh & Cựu Học Sinh',
+            subtitle: 'Những cảm nhận chân thực về môi trường giáo dục song ngữ toàn diện tại Alpha School',
+            items: [
+              {
+                id: 't-1',
+                authorName: 'Chị Hoàng Thùy Linh',
+                role: 'Phụ huynh học sinh',
+                studentInfo: 'Mẹ bé Gia Hân - Lớp 5 Cambridge Cơ sở Biên Hòa',
+                content: 'Gia đình rất an tâm khi gửi gắm con tại Alpha School. Sau 3 năm, con không chỉ nói tiếng Anh lưu loát mà tư duy phản biện và khả năng tự lập của con tiến bộ vượt bậc.',
+                avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200&auto=format&fit=crop',
+                rating: 5,
+              },
+              {
+                id: 't-2',
+                authorName: 'Anh Phạm Quốc Huy',
+                role: 'Phụ huynh học sinh',
+                studentInfo: 'Bố bé Minh Đức - Lớp 10 Tú tài Cơ sở Thủ Đức',
+                content: 'Chương trình Cambridge A-Level tại trường giúp con đạt điểm số rất cao và vừa nhận học bổng 70% từ Đại học Melbourne. Cảm ơn thầy cô đã luôn tận tụy đồng hành!',
+                avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop',
+                rating: 5,
+              },
+              {
+                id: 't-3',
+                authorName: 'Em Lê Mai Anh',
+                role: 'Cựu học sinh niên khóa 2024',
+                studentInfo: 'Thủ khoa A-Level - Sinh viên University of Toronto',
+                content: 'Môi trường Alpha School đã cho em sự tự tin bước ra thế giới. Những dự án STEM và hoạt động tranh biện tại trường là hành trang quý giá nhất trong hành trình du học của em.',
+                avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
+                rating: 5,
+              },
+            ],
+          },
+        },
+      ],
+    },
+    {
+      id: 'sec-faq',
+      pageId: 'page-home',
+      name: 'Giải đáp thắc mắc thường gặp',
+      sortOrder: 7,
+      isVisible: true,
+      settings: {
+        layout: { width: 'container' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-faq',
+          type: 'faq_accordion',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: {
+            title: 'Giải Đáp Thắc Mắc Thường Gặp',
+            subtitle: 'Những thông tin quan trọng giúp Quý Phụ huynh hiểu rõ hơn về hệ thống và chương trình đào tạo',
+            items: [
+              {
+                question: 'Nhà trường có dịch vụ xe bus đưa đón học sinh tận nhà không?',
+                answer: 'Có, Alpha School cung cấp mạng lưới xe bus đưa đón tận nhà hoặc theo điểm đón tập trung tại tất cả các quận huyện thuộc địa bàn cơ sở với giám sát viên chuyên trách và định vị GPS báo về điện thoại phụ huynh.',
+              },
+              {
+                question: 'Chế độ dinh dưỡng và bán trú tại trường được tổ chức thế nào?',
+                answer: 'Bếp ăn chuẩn quốc tế HACCP chế biến tươi tại chỗ, cung cấp 3 bữa/ngày (sáng, trưa, xế) với thực đơn được các chuyên gia dinh dưỡng thiết kế cân bằng vi chất, thay đổi linh hoạt theo tuần.',
+              },
+              {
+                question: 'Học sinh chuyển từ trường công lập sang có theo kịp chương trình tiếng Anh không?',
+                answer: 'Nhà trường có các lớp bồi dưỡng tiếng Anh tăng cường (ESL Intensive) đầu năm học và đội ngũ giáo viên trợ giảng hỗ trợ kèm riêng để các em nhanh chóng bắt nhịp tự tin với bạn bè.',
+              },
+              {
+                question: 'Chính sách học bổng dành cho học sinh mới như thế nào?',
+                answer: 'Hằng năm Alpha School cấp quỹ học bổng Alpha Excellence trị giá 10 tỷ VNĐ với các mức 30%, 50% và 100% học phí dành cho các em học sinh có thành tích học tập và tài năng xuất sắc.',
+              },
+            ],
+          },
+        },
+      ],
+    },
+    {
+      id: 'sec-form-contact',
+      pageId: 'page-home',
+      name: 'Biểu mẫu tư vấn tuyển sinh',
+      sortOrder: 8,
+      isVisible: true,
+      settings: {
+        layout: { width: 'container' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-home-form',
+          type: 'form_embed',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: {
+            title: 'Đăng Ký Nhận Cẩm Nang Tuyển Sinh & Tư Vấn 2025 - 2026',
+            subtitle: 'Để lại thông tin để chuyên viên tuyển sinh cơ sở gần nhất liên hệ giải đáp chi tiết trong vòng 24 giờ',
+            formCode: 'tuyen-sinh-2025',
+            submitButtonText: 'Gửi thông tin đăng ký',
+            showBranchSelect: true,
+          },
+        },
+      ],
+    },
   ],
 };
 

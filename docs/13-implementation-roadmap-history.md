@@ -202,7 +202,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/api/src/__tests__/test-runner.ts`:
     - Bổ sung 5 bài kiểm thử tự động chuyên sâu (Tests 36 - 40) nâng tổng số lên **40 tests passing 100%**.
 
-### Phase 21: Đa Cơ Sở Hybrid Subdomain Routing, Scoped Theming, Xem Trước Bản Thảo HMAC & Visual Diff So Sánh Bản Sửa Đổi (45 Tests)
+### Phase 21: Đa Cơ Sở Hybrid Subdomain Routing, Scoped Theming, Xem Trước Bản Thảo HMAC & Visual Diff So Sánh Bản Sửa Đổi (Commit: ee74d60)
 - **Tệp tin**:
   - `packages/theme/src/campus.ts`: Bộ token nhận diện thương hiệu riêng biệt cho 3 cơ sở (`CAMPUS_THEMES`: Biên Hòa `#047857`, Thủ Đức `#1d4ed8`, Cầu Giấy `#b91c1c`), bộ phân giải token `getCampusThemeTokens()`, và bộ phân giải tên miền/subdomain `resolveCampusFromHost()`.
   - `packages/theme/src/index.ts`: Re-export toàn diện các tiện ích theming và routing cơ sở.

@@ -24,7 +24,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 14** | Hiển thị trọn vẹn 8 Blocks trên Public Web Portal (`/`), Mở rộng 18 Tests kiểm thử tự động | Hoàn thành | `f5899d7` |
 | **Phase 15** | SEO Rich Snippets (Schema.org FAQPage & Breadcrumbs), Làm sạch Form Chống XSS & 20 Tests | Hoàn thành | `e9821e1` |
 | **Phase 16** | Bảng Điều Phối Tuyển Sinh Kanban (4 cột, KPI Conversion Rate), Webhook HMAC-SHA256 & 22 Tests | Hoàn thành | `c6eaca2` |
-| **Phase 17** | Mở rộng 10 Blocks Chuẩn (Statistics, CTA Banner), Media Asset Optimization Engine, Webhook Test Console & 26 Tests | Hoàn thành | `Đang cập nhật` |
+| **Phase 17** | Mở rộng 10 Blocks Chuẩn (Statistics, CTA Banner), Media Asset Optimization Engine, Webhook Test Console & 26 Tests | Hoàn thành | `e5586dc` |
 
 
 ---

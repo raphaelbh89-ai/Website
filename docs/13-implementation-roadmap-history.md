@@ -31,7 +31,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 21** | Đa Cơ Sở Hybrid Subdomain Routing, Scoped Theming, Xem Trước Bảo Mật HMAC & So Sánh Snapshot Diff & 45 Tests | Hoàn thành | `ee74d60` |
 | **Phase 22** | Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN & 50 Tests | Hoàn thành | `77fec7a` |
 | **Phase 23** | Cổng Phụ Huynh & Sổ Liên Lạc Điện Tử `@school-cms/portal`, Scoping Guard, Điểm Danh & 55 Tests | Hoàn thành | `55ea9a0` |
-| **Phase 24** | Phân Vùng CSDL Database Partitioning, Cắt Tỉa Truy Vấn & Vòng Đời Lưu Trữ 50 Cơ Sở & 60 Tests | Hoàn thành | `Đang cập nhật` |
+| **Phase 24** | Phân Vùng CSDL Database Partitioning, Cắt Tỉa Truy Vấn & Vòng Đời Lưu Trữ 50 Cơ Sở & 60 Tests | Hoàn thành | `73f2074` |
 
 ---
 

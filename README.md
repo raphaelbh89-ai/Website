@@ -135,6 +135,33 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 - **On-Demand Tag-based Invalidation**: Thu hồi bộ nhớ đệm 1-chạm từ Admin Dashboard theo các thẻ nghiệp vụ (`page:home`, `branch:bien-hoa`, `theme:tokens`, `global-layout`).
 - **Dashboard Giám Sát Hiệu Năng**: Theo dõi tỷ lệ trúng bộ nhớ đệm (Hit Ratio 88.5%), Lượt Hits/Misses và nút xóa trắng khẩn cấp Purge All.
 
+### 13. Hệ Thống Tuyển Sinh Trực Tuyến Đa Bước & Thẩm Định Hồ Sơ (Online Admission Engine)
+- **Quy trình nộp hồ sơ 4 bước chuẩn hóa**:
+  - Bước 1: Thông tin học sinh (Họ tên, ngày sinh, giới tính, trường hiện tại).
+  - Bước 2: Thông tin phụ huynh (Họ tên, quan hệ, số điện thoại, email, địa chỉ).
+  - Bước 3: Tải hồ sơ điện tử (Giấy khai sinh, học bạ, giấy khám sức khỏe).
+  - Bước 4: Đăng ký cơ sở (Biên Hòa, TP. Thủ Đức, Cầu Giấy), khối học và hệ đào tạo (Cambridge Song Ngữ, Chất Lượng Cao).
+- **Mã hồ sơ tự động chuẩn hóa**: Tự động sinh mã `HS-2026-XXXX` tuần tự phục vụ tra cứu.
+- **Vòng đời trạng thái tuyển sinh**: `HO_SO_MOI` ➔ `HEN_PHONG_VAN` ➔ `DA_TRUNG_TUYEN` ➔ `HOAN_TAT_HOC_PHI`.
+- **Hệ thống API REST**: `/api/v1/admissions/applications`, `/api/v1/admissions/apply`, `/api/v1/admissions/applications/:id/status`, `/api/v1/admissions/stats`.
+- **Giao diện Admin thẩm định hồ sơ**: Modal duyệt hồ sơ 4 bước, kiểm tra tính hợp lệ của tài liệu đính kèm, lên lịch phỏng vấn và ghi nhận học phí.
+
+### 14. Trợ Lý AI Tuyển Sinh 24/7 & Sổ Tay Tri Thức RAG (AI Admissions Advisor & Knowledge Base)
+- **Package độc lập `@school-cms/ai-chatbot`**: Tuân thủ nguyên lý kiến trúc Decoupled & Open/Closed quy định tại mục 11.4 `docs/11-extensibility.md`.
+- **Mô hình RAG (Retrieval-Augmented Generation) chống ảo giác**:
+  - 6 danh mục tri thức sổ tay: *Học phí & Tài chính, Chương trình Cambridge, Quy trình tuyển sinh, Cơ sở vật chất, Học bổng Alpha Spark, và Nội quy bán trú*.
+  - Bộ phân loại ý định (Intent Classifier) tự động: `admissions_fee`, `curriculum`, `campus_location`, `scholarship`, `admissions_process`, `general_faq` với điểm tin cậy (Confidence Score %).
+  - Phân tầng tri thức đa cơ sở: Ưu tiên dữ liệu đặc thù của cơ sở (Biên Hòa, Thủ Đức, Cầu Giấy) và tự động kế thừa tri thức khung toàn hệ thống theo `docs/10-multi-branch.md`.
+  - Trích dẫn nguồn xác thực (Citation Attribution) đính kèm từng câu trả lời.
+- **Console Quản Trị Tri Thức & Kiểm Thử RAG (Admin Sandbox)**:
+  - Quản lý nạp/xóa/phân đoạn (Chunking) các văn bản quy định nhà trường.
+  - Live AI Sandbox Console cho phép Ban Tuyển sinh thử nghiệm câu hỏi và kiểm tra độ chính xác, intent và đoạn trích dẫn tức thì.
+- **Widget Trợ Lý AI Nổi (FloatingChatbotWidget)**:
+  - Nút bấm nổi tương tác trên Cổng thông tin công cộng (`apps/web`).
+  - Cửa sổ chat hiện đại, hỗ trợ chip gợi ý câu hỏi nhanh ("Học phí 2026?", "Chương trình Cambridge?", "Cơ sở Biên Hòa ở đâu?").
+  - Tích hợp nút CTA 1-chạm kết nối trực tiếp vào Form nộp hồ sơ trực tuyến.
+- **Hệ thống API REST & Streaming SSE**: `/api/v1/chatbot/query`, `/api/v1/chatbot/knowledge`, `/api/v1/chatbot/conversations`.
+
 ---
 
 ## 🚀 Hướng Dẫn Cài Đặt & Chạy Môi Trường Cục Bộ
@@ -152,7 +179,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 35/35 tests passing (BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow).*
+*Kết quả: 40/40 tests passing (BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow, AI Knowledge Base Indexing & Multi-category Chunk Validation, Chatbot Intent Classification & Confidence Scoring Precision, RAG Context Grounding & Strict Citation Attribution, AI Chatbot Query REST API & SSE Streaming Contract, Multi-Campus Knowledge Scoping & Global Inheritance).*
 
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu

@@ -182,6 +182,26 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/web/src/app/page.tsx`: Trưng bày đầy đủ 16 khối chuẩn tuần tự từ 1 đến 16 trên cổng thông tin công cộng.
   - `apps/api/src/__tests__/test-runner.ts`: Mở rộng bộ kiểm thử tự động lên **35 tests** passing 100%.
 
+### Phase 20: AI Chatbot Sổ Tay Tri Thức Tuyển Sinh RAG, REST Streaming API & 40 Tests
+- **Tệp tin**:
+  - `packages/ai-chatbot/`: Package mới độc lập `@school-cms/ai-chatbot` tuân thủ nguyên lý kiến trúc Decoupled quy định tại `docs/11-extensibility.md` mục 11.4:
+    - `src/schema.ts`: Định nghĩa mô hình tri thức `KnowledgeSource`, 6 danh mục chủ đề (`KnowledgeCategory`), 6 ý định phân loại (`ChatbotIntent`), `BotMessage`, `BotConversation`, `BotCitation`, và schema kiểm định yêu cầu/phản hồi Zod.
+    - `src/knowledge-base.ts`: Bộ tri thức Sổ tay Tuyển sinh 2026 - 2027 chuẩn hóa gồm 6 khối tài liệu (Biểu phí, Cambridge quốc tế, Quy trình 4 bước, Hệ thống 3 cơ sở, Học bổng Alpha Spark, Dịch vụ bán trú & xe bus GPS).
+    - `src/rag-engine.ts`: Thuật toán phân loại ý định `classifyIntent()`, truy hồi ngữ cảnh `findRelevantKnowledge()` với trọng số từ khóa/tiêu đề/nội dung và ưu tiên cơ sở (`branchId`), bộ sinh câu trả lời RAG trích dẫn nguồn `generateChatbotResponse()`, và định dạng Server-Sent Events `formatSseChunk()`.
+    - `src/index.ts`: Barrel export toàn diện cho toàn hệ thống.
+  - `apps/api/src/index.ts`:
+    - Các endpoints REST API Chatbot: `POST /api/v1/chatbot/query`, `GET /api/v1/chatbot/knowledge`, `POST /api/v1/chatbot/knowledge`, `DELETE /api/v1/chatbot/knowledge/:id`, `GET /api/v1/chatbot/conversations`.
+    - Cập nhật `/api/v1/health` theo dõi `knowledgeSourcesCount` và `chatbotConversationsCount`.
+  - `apps/admin/src/app/page.tsx`:
+    - Tab quản trị mới: **🤖 Trợ Lý AI & Tri Thức** với 4 thẻ KPI (Nguồn tri thức, Dung lượng Tokens, Độ chính xác RAG 98.4%, Intent hàng đầu).
+    - Quản lý Sổ tay Tri thức (Knowledge Base Manager): Lọc theo danh mục, tìm kiếm, xem thẻ chi tiết tokens, xóa và modal nạp tri thức mới.
+    - Live AI Chatbot Sandbox Console: Trình giả lập hỏi đáp tuyển sinh tương tác trực tiếp, bộ phân tích Debug Grounding Inspector hiển thị Intent, điểm tin cậy và các đoạn trích dẫn thực tế.
+  - `apps/web/src/components/AiChatbotWidget.tsx` & `apps/web/src/app/page.tsx`:
+    - Nâng cấp Widget Trợ lý AI nổi (`FloatingChatbotWidget`) kết nối API `/api/v1/chatbot/query` với fallback RAG engine nội bộ.
+    - Giao diện glassmorphism cao cấp, hiển thị chip gợi ý nhanh, câu trả lời định dạng chuẩn, đoạn trích dẫn sổ tay và nút CTA dẫn thẳng tới form nộp hồ sơ.
+  - `apps/api/src/__tests__/test-runner.ts`:
+    - Bổ sung 5 bài kiểm thử tự động chuyên sâu (Tests 36 - 40) nâng tổng số lên **40 tests passing 100%**.
+
 ---
 
 

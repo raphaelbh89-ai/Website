@@ -6,6 +6,7 @@ import { defaultRichTextConfig } from '@school-cms/blocks';
 import { defaultImageTextConfig } from '@school-cms/blocks';
 import { defaultVideoPlayerConfig } from '@school-cms/blocks';
 import { defaultGoogleMapConfig } from '@school-cms/blocks';
+import { AiChatbotWidget } from '../components/AiChatbotWidget';
 
 // Trang chủ được nạp dữ liệu từ CMS / Page JSON với đầy đủ 16 khối chuẩn
 const mockHomePageData: Page = {
@@ -647,6 +648,7 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       <DynamicPageRenderer page={mockHomePageData} />
+      <AiChatbotWidget />
     </>
   );
 }

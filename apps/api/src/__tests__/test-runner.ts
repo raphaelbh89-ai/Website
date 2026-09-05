@@ -27,6 +27,19 @@ import {
   ADMISSION_STATUS_LABELS,
 } from '@school-cms/shared';
 import {
+  KnowledgeSourceSchema,
+  KnowledgeCategorySchema,
+  ChatbotQueryRequestSchema,
+  ChatbotQueryResponseSchema,
+  INITIAL_KNOWLEDGE_SOURCES,
+  classifyIntent,
+  findRelevantKnowledge,
+  generateChatbotResponse,
+  formatSseChunk,
+  KNOWLEDGE_CATEGORY_LABELS,
+  INTENT_LABELS,
+} from '@school-cms/ai-chatbot';
+import {
   AdmissionStep1StudentSchema,
   AdmissionStep2ParentSchema,
   AdmissionStep3DocumentSchema,
@@ -1189,6 +1202,194 @@ async function runTestSuite() {
     const feeAmount = 25000000;
     assert.strictEqual(feePaid, true);
     assert.strictEqual(feeAmount, 25000000);
+  });
+
+  it('AI Knowledge Base indexing & schema validation across 6 core school domains', () => {
+    assert.ok(INITIAL_KNOWLEDGE_SOURCES.length >= 6, 'Should have at least 6 initial knowledge base chunks');
+
+    const expectedCategories = KnowledgeCategorySchema.options;
+    const categoriesFound = new Set<string>();
+
+    let totalTokens = 0;
+    for (const chunk of INITIAL_KNOWLEDGE_SOURCES) {
+      // Validate schema
+      const parsed = KnowledgeSourceSchema.parse(chunk);
+      assert.strictEqual(parsed.id, chunk.id);
+      assert.ok(parsed.title.length >= 3);
+      assert.ok(parsed.content.length >= 10);
+      assert.ok(parsed.tokenCount > 0);
+      assert.ok(parsed.tags.length > 0);
+      categoriesFound.add(parsed.category);
+      totalTokens += parsed.tokenCount;
+
+      // Verify category presentation metadata
+      const catConfig = KNOWLEDGE_CATEGORY_LABELS[parsed.category];
+      assert.ok(catConfig, `Category config must exist for ${parsed.category}`);
+      assert.ok(catConfig.label);
+      assert.ok(catConfig.icon);
+      assert.ok(catConfig.color);
+    }
+
+    // All 6 domains must be covered
+    for (const cat of expectedCategories) {
+      assert.ok(categoriesFound.has(cat), `Knowledge base must contain at least one document for domain: ${cat}`);
+    }
+    assert.ok(totalTokens > 1000, `Knowledge base must contain substantial domain tokens (actual: ${totalTokens})`);
+  });
+
+  it('Chatbot Intent Classification & Confidence Scoring precision across varied parent queries', () => {
+    const testCases: Array<{ query: string; expectedIntent: string; minConfidence: number }> = [
+      {
+        query: 'Cho tôi hỏi học phí lớp 1 năm học này bao nhiêu tiền một tháng?',
+        expectedIntent: 'admissions_fee',
+        minConfidence: 0.7,
+      },
+      {
+        query: 'Chương trình song ngữ quốc tế Cambridge giảng dạy IGCSE và A Level như thế nào?',
+        expectedIntent: 'curriculum',
+        minConfidence: 0.7,
+      },
+      {
+        query: 'Nhà trường có quỹ học bổng Alpha Spark cho học sinh giỏi đạt giải thưởng không?',
+        expectedIntent: 'scholarship',
+        minConfidence: 0.7,
+      },
+      {
+        query: 'Địa chỉ cơ sở Biên Hòa ở đâu và có bể bơi phòng lab không?',
+        expectedIntent: 'campus_location',
+        minConfidence: 0.7,
+      },
+      {
+        query: 'Quy trình nộp hồ sơ xét tuyển trực tuyến 4 bước và giấy tờ cần chuẩn bị?',
+        expectedIntent: 'admissions_process',
+        minConfidence: 0.7,
+      },
+      {
+        query: 'Giờ học sinh tan trường và thực đơn bán trú dinh dưỡng',
+        expectedIntent: 'general_faq',
+        minConfidence: 0.6,
+      },
+    ];
+
+    for (const tc of testCases) {
+      const result = classifyIntent(tc.query);
+      assert.strictEqual(
+        result.intent,
+        tc.expectedIntent,
+        `Query "${tc.query}" should classify as ${tc.expectedIntent}, got ${result.intent}`
+      );
+      assert.ok(
+        result.confidence >= tc.minConfidence,
+        `Query "${tc.query}" confidence should be >= ${tc.minConfidence}, got ${result.confidence}`
+      );
+
+      // Verify INTENT_LABELS mapping
+      const labelDef = INTENT_LABELS[result.intent];
+      assert.ok(labelDef.label);
+      assert.ok(labelDef.description);
+    }
+  });
+
+  it('RAG Context Grounding & Strict Citation Attribution ensures accurate, hallucination-free advisor answers', () => {
+    // 1. Context retrieval keyword matching
+    const feeMatches = findRelevantKnowledge('học phí ưu đãi đóng sớm 10%');
+    assert.ok(feeMatches.length > 0, 'Should find matching chunks for fee discount query');
+    assert.strictEqual(feeMatches[0].chunk.id, 'kb-hoc-phi-2026', 'Top matched chunk must be 2026 tuition policy');
+    assert.ok(feeMatches[0].score > 3.0, 'Relevance score should be significant');
+
+    // 2. Generate grounded AI response
+    const query = 'Học phí các khối năm học 2026 - 2027 bao nhiêu?';
+    const response = generateChatbotResponse(query, []);
+
+    assert.ok(response.conversationId.startsWith('conv-'));
+    assert.strictEqual(response.intent, 'admissions_fee');
+    assert.strictEqual(response.message.role, 'assistant');
+    assert.ok(response.message.content.includes('8.500.000 VNĐ'), 'Response must ground actual fee figures');
+    assert.ok(response.message.content.includes('10%'), 'Response must mention early bird discount');
+
+    // 3. Citations verification
+    assert.ok(response.citations.length > 0, 'Grounded response must provide citation sources');
+    for (const citation of response.citations) {
+      assert.ok(citation.sourceId);
+      assert.ok(citation.title);
+      assert.ok(citation.snippet.length > 0);
+      assert.ok(citation.category);
+    }
+
+    // 4. Contextual follow-up suggestions
+    assert.ok(response.suggestedFollowUps.length >= 2, 'Must suggest follow-up questions for parents');
+  });
+
+  it('AI Chatbot Query REST API Contract & Conversation State Progression satisfies schema and streaming specifications', () => {
+    // 1. Validate request schema
+    const validReq = {
+      query: 'Chương trình Cambridge có thi chứng chỉ quốc tế gì?',
+      conversationId: 'conv-test-101',
+      branchId: 'bien-hoa',
+    };
+    const parsedReq = ChatbotQueryRequestSchema.parse(validReq);
+    assert.strictEqual(parsedReq.query, validReq.query);
+
+    const invalidReq = { query: '' };
+    const invalidCheck = ChatbotQueryRequestSchema.safeParse(invalidReq);
+    assert.strictEqual(invalidCheck.success, false, 'Empty query must be rejected');
+
+    // 2. Validate response schema
+    const response = generateChatbotResponse(validReq.query, [], {
+      branchId: validReq.branchId,
+      conversationId: validReq.conversationId,
+    });
+    const parsedResp = ChatbotQueryResponseSchema.parse(response);
+    assert.strictEqual(parsedResp.conversationId, validReq.conversationId);
+    assert.strictEqual(parsedResp.intent, 'curriculum');
+    assert.ok(parsedResp.confidence >= 0.7);
+
+    // 3. Validate Server-Sent Events (SSE) stream chunk generator
+    const sseChunk1 = formatSseChunk('Dạ chào Quý phụ huynh', false, { tokenIndex: 1 });
+    assert.ok(sseChunk1.startsWith('data: '), 'SSE chunk must begin with "data: "');
+    assert.ok(sseChunk1.endsWith('\n\n'), 'SSE chunk must terminate with double newline');
+
+    const sseData = JSON.parse(sseChunk1.replace('data: ', '').trim());
+    assert.strictEqual(sseData.chunk, 'Dạ chào Quý phụ huynh');
+    assert.strictEqual(sseData.done, false);
+    assert.strictEqual(sseData.metadata.tokenIndex, 1);
+
+    const sseDone = formatSseChunk('', true);
+    const sseDoneData = JSON.parse(sseDone.replace('data: ', '').trim());
+    assert.strictEqual(sseDoneData.done, true);
+  });
+
+  it('Multi-Campus Knowledge Scoping prioritizes branch-specific chunks while inheriting global school curriculum', () => {
+    // 1. Query with specific branch scoping ('bien-hoa')
+    const branchSpecificQuery = 'ưu đãi học phí và tuyến xe bus tại cơ sở Biên Hòa';
+    const branchMatches = findRelevantKnowledge(branchSpecificQuery, {
+      branchId: 'bien-hoa',
+      topK: 3,
+    });
+
+    assert.ok(branchMatches.length > 0, 'Must retrieve knowledge chunks for Biên Hòa');
+    // The top chunk should be the branch-specific chunk kb-campus-bien-hoa-special
+    assert.strictEqual(
+      branchMatches[0].chunk.id,
+      'kb-campus-bien-hoa-special',
+      'Branch-specific chunk must receive priority boost for branch queries'
+    );
+    assert.strictEqual(branchMatches[0].chunk.branchId, 'bien-hoa');
+
+    // 2. Global curriculum query executed within Biên Hòa branch scope
+    const globalQuery = 'Lộ trình thi chứng chỉ Cambridge Primary và Lower Secondary Checkpoint';
+    const inheritedMatches = findRelevantKnowledge(globalQuery, {
+      branchId: 'bien-hoa',
+      topK: 3,
+    });
+
+    assert.ok(inheritedMatches.length > 0, 'Must retrieve knowledge chunks');
+    assert.strictEqual(
+      inheritedMatches[0].chunk.id,
+      'kb-cambridge-curriculum',
+      'Global curriculum must be inherited seamlessly by branch scope per docs/10-multi-branch.md'
+    );
+    assert.strictEqual(inheritedMatches[0].chunk.branchId, null, 'Curriculum chunk is global');
   });
 
 

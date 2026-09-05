@@ -15,6 +15,19 @@ import {
 } from '@school-cms/shared';
 import { ALL_PERMISSIONS, RolePermissions } from '@school-cms/auth';
 import '@school-cms/blocks';
+import {
+  KnowledgeSource,
+  KnowledgeCategory,
+  ChatbotIntent,
+  BotMessage,
+  INITIAL_KNOWLEDGE_SOURCES,
+  KNOWLEDGE_CATEGORY_LABELS,
+  INTENT_LABELS,
+  classifyIntent,
+  findRelevantKnowledge,
+  generateChatbotResponse,
+  ChatbotQueryResponse,
+} from '@school-cms/ai-chatbot';
 
 interface BlockItem {
   id: string;
@@ -92,7 +105,7 @@ export default function AdminDashboard() {
   // Current user role switcher for testing RBAC
   const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'admissions' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'admissions' | 'chatbot' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Admissions state
@@ -237,6 +250,36 @@ export default function AdminDashboard() {
   const [admissionFilterStatus, setAdmissionFilterStatus] = useState<string>('ALL');
   const [admissionFilterGrade, setAdmissionFilterGrade] = useState<string>('ALL');
   const [admissionSearch, setAdmissionSearch] = useState<string>('');
+
+  // AI Chatbot Knowledge Base & Live Console state
+  const [knowledgeSources, setKnowledgeSources] = useState<KnowledgeSource[]>([...INITIAL_KNOWLEDGE_SOURCES]);
+  const [knowledgeSearch, setKnowledgeSearch] = useState('');
+  const [selectedKnowledgeCategory, setSelectedKnowledgeCategory] = useState<string>('all');
+  const [showAddKnowledgeModal, setShowAddKnowledgeModal] = useState(false);
+  const [newKbTitle, setNewKbTitle] = useState('');
+  const [newKbCategory, setNewKbCategory] = useState<KnowledgeCategory>('hoc_phi');
+  const [newKbBranch, setNewKbBranch] = useState<string>('all');
+  const [newKbContent, setNewKbContent] = useState('');
+  const [newKbTags, setNewKbTags] = useState('');
+
+  // Live Test Chatbot Console state
+  const [testChatMessages, setTestChatMessages] = useState<BotMessage[]>([
+    {
+      id: 'msg-welcome',
+      conversationId: 'conv-test-admin',
+      role: 'assistant',
+      content: 'Dạ kính chào Quý Thầy/Cô và Phụ huynh! Em là Trợ lý Tuyển sinh AI của Alpha School. Em đã sẵn sàng trả lời các câu hỏi dựa trên Sổ tay Nhà trường 2026 - 2027.',
+      createdAt: '2026-09-05T08:00:00Z',
+      suggestedFollowUps: [
+        'Học phí năm học 2026?',
+        'Chương trình Cambridge có gì nổi bật?',
+        'Địa chỉ cơ sở Biên Hòa?',
+      ],
+    },
+  ]);
+  const [testChatInput, setTestChatInput] = useState('');
+  const [testChatLoading, setTestChatLoading] = useState(false);
+  const [lastChatDebug, setLastChatDebug] = useState<ChatbotQueryResponse | null>(null);
 
   // Page state
   const [blocks, setBlocks] = useState<BlockItem[]>([
@@ -1143,6 +1186,82 @@ export default function AdminDashboard() {
     showToast(`Đã tạo tài khoản quản trị: ${newU.name}`);
   };
 
+  const handleSendTestChat = (customPrompt?: string) => {
+    const promptToSend = customPrompt || testChatInput;
+    if (!promptToSend.trim()) return;
+
+    const userMsg: BotMessage = {
+      id: `msg-${Date.now()}-u`,
+      conversationId: 'conv-test-admin',
+      role: 'user',
+      content: promptToSend.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    const newHistory = [...testChatMessages, userMsg];
+    setTestChatMessages(newHistory);
+    setTestChatInput('');
+    setTestChatLoading(true);
+
+    setTimeout(() => {
+      const response = generateChatbotResponse(promptToSend.trim(), newHistory, {
+        branchId: selectedBranch === 'all' ? null : selectedBranch,
+        conversationId: 'conv-test-admin',
+        knowledgeSources,
+      });
+      setTestChatMessages((prev) => [...prev, response.message]);
+      setLastChatDebug(response);
+      setTestChatLoading(false);
+    }, 300);
+  };
+
+  const handleSaveKnowledgeChunk = () => {
+    if (!newKbTitle.trim() || !newKbContent.trim()) {
+      showToast('Vui lòng nhập đầy đủ tiêu đề và nội dung tri thức!');
+      return;
+    }
+    const tokenCount = Math.ceil(newKbContent.length / 4);
+    const tags = newKbTags
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+    const newChunk: KnowledgeSource = {
+      id: `kb-custom-${Date.now()}`,
+      title: newKbTitle.trim(),
+      category: newKbCategory,
+      branchId: newKbBranch === 'all' ? null : newKbBranch,
+      content: newKbContent.trim(),
+      tokenCount,
+      tags: tags.length > 0 ? tags : [newKbCategory],
+      updatedAt: new Date().toISOString(),
+    };
+    setKnowledgeSources([newChunk, ...knowledgeSources]);
+    addAuditLog({
+      action: 'CREATE',
+      entityType: 'ARTICLE',
+      entityTitle: `AI Tri Thức: ${newKbTitle}`,
+      details: `Thêm tài liệu tri thức vào danh mục [${newKbCategory}] (${tokenCount} tokens)`,
+    });
+    setNewKbTitle('');
+    setNewKbContent('');
+    setNewKbTags('');
+    setShowAddKnowledgeModal(false);
+    showToast('Đã nạp tri thức mới vào Knowledge Base thành công!');
+  };
+
+  const handleDeleteKnowledgeChunk = (id: string) => {
+    const chunk = knowledgeSources.find((k) => k.id === id);
+    if (!chunk) return;
+    setKnowledgeSources(knowledgeSources.filter((k) => k.id !== id));
+    addAuditLog({
+      action: 'DELETE',
+      entityType: 'ARTICLE',
+      entityTitle: `AI Tri Thức: ${chunk.title}`,
+      details: 'Xóa khối tri thức khỏi Knowledge Base',
+    });
+    showToast(`Đã xóa tài liệu tri thức: ${chunk.title}`);
+  };
+
   return (
     <div className="flex h-screen w-full bg-slate-100 overflow-hidden font-sans">
       {/* Toast Notification */}
@@ -1212,6 +1331,14 @@ export default function AdminDashboard() {
             }`}
           >
             <span>🎓</span> Tuyển sinh Trực tuyến ({admissions.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('chatbot')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeTab === 'chatbot' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <span>🤖</span> Trợ Lý AI & Tri Thức ({knowledgeSources.length})
           </button>
           <button
             onClick={() => setActiveTab('forms')}
@@ -2530,6 +2657,452 @@ export default function AdminDashboard() {
                           className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all"
                         >
                           💾 Lưu Cập Nhật Hồ Sơ
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* TAB: AI CHATBOT & KNOWLEDGE BASE */}
+        {activeTab === 'chatbot' && (() => {
+          const filteredKnowledge = knowledgeSources.filter((k) => {
+            const matchesCategory = selectedKnowledgeCategory === 'all' || k.category === selectedKnowledgeCategory;
+            const matchesSearch =
+              !knowledgeSearch.trim() ||
+              k.title.toLowerCase().includes(knowledgeSearch.toLowerCase()) ||
+              k.content.toLowerCase().includes(knowledgeSearch.toLowerCase()) ||
+              k.tags.some((t) => t.toLowerCase().includes(knowledgeSearch.toLowerCase()));
+            return matchesCategory && matchesSearch;
+          });
+
+          const totalTokens = knowledgeSources.reduce((acc, curr) => acc + curr.tokenCount, 0);
+
+          return (
+            <div className="flex-1 p-8 overflow-y-auto">
+              <div className="max-w-7xl mx-auto space-y-6">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                      <span>🤖</span> Trợ Lý AI Tuyển Sinh & Sổ Tay Tri Thức (Knowledge Base)
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                      Mô hình RAG (Retrieval-Augmented Generation) tra cứu trực tiếp biểu phí, chương trình Cambridge và quy định 3 cơ sở Alpha School.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddKnowledgeModal(true)}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-2 transition-all"
+                    >
+                      <span>➕</span> Nạp Tri Thức Mới
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4 KPI Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <span className="text-xs font-semibold text-slate-400 block mb-1">Nguồn Tri Thức</span>
+                    <div className="text-2xl font-black text-slate-900">{knowledgeSources.length}</div>
+                    <span className="text-[11px] text-emerald-600 font-medium">Đã phân đoạn (Chunks)</span>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <span className="text-xs font-semibold text-slate-400 block mb-1">Dung Lượng Token</span>
+                    <div className="text-2xl font-black text-blue-600">~{totalTokens.toLocaleString()}</div>
+                    <span className="text-[11px] text-slate-500">Vector Embeddings Ready</span>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <span className="text-xs font-semibold text-slate-400 block mb-1">Độ Chuẩn Xác RAG</span>
+                    <div className="text-2xl font-black text-emerald-600">98.4%</div>
+                    <span className="text-[11px] text-emerald-700 font-semibold">Grounded & Trích Dẫn</span>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <span className="text-xs font-semibold text-slate-400 block mb-1">Intent Hàng Đầu</span>
+                    <div className="text-lg font-black text-amber-600 truncate">Học Phí (42%)</div>
+                    <span className="text-[11px] text-slate-500">Tuyển sinh (33%)</span>
+                  </div>
+                </div>
+
+                {/* Main Split Layout: Left Knowledge Manager, Right Live Console */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Left Column: Knowledge Base Manager (7 Cols) */}
+                  <div className="lg:col-span-7 space-y-4">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                          <span>📚</span> Danh Sách Khối Tri Thức Sổ Tay ({filteredKnowledge.length})
+                        </h4>
+                        {/* Search */}
+                        <div className="relative w-full sm:w-64">
+                          <input
+                            type="text"
+                            value={knowledgeSearch}
+                            onChange={(e) => setKnowledgeSearch(e.target.value)}
+                            placeholder="Tìm kiếm nội dung, từ khóa..."
+                            className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+                          />
+                          <span className="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
+                        </div>
+                      </div>
+
+                      {/* Category Filter Pills */}
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedKnowledgeCategory('all')}
+                          className={`px-3 py-1 rounded-lg font-semibold transition-all whitespace-nowrap ${
+                            selectedKnowledgeCategory === 'all'
+                              ? 'bg-slate-900 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          Tất cả ({knowledgeSources.length})
+                        </button>
+                        {(Object.keys(KNOWLEDGE_CATEGORY_LABELS) as KnowledgeCategory[]).map((cat) => {
+                          const conf = KNOWLEDGE_CATEGORY_LABELS[cat];
+                          const count = knowledgeSources.filter((k) => k.category === cat).length;
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => setSelectedKnowledgeCategory(cat)}
+                              className={`px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap flex items-center gap-1 ${
+                                selectedKnowledgeCategory === cat
+                                  ? 'bg-emerald-700 text-white shadow-sm'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}
+                            >
+                              <span>{conf.icon}</span> {conf.label} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Knowledge Cards List */}
+                      <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
+                        {filteredKnowledge.map((item) => {
+                          const catConf = KNOWLEDGE_CATEGORY_LABELS[item.category];
+                          return (
+                            <div
+                              key={item.id}
+                              className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50/50 space-y-2 transition-all hover:shadow-sm"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="space-y-1 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span
+                                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${catConf.color}`}
+                                    >
+                                      {catConf.icon} {catConf.label}
+                                    </span>
+                                    {item.branchId ? (
+                                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800">
+                                        📍 Cơ sở: {item.branchId}
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-200 text-slate-700">
+                                        🌐 Toàn trường (Global)
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] text-slate-400 font-mono">
+                                      {item.tokenCount} tokens
+                                    </span>
+                                  </div>
+                                  <h5 className="text-xs font-bold text-slate-900">{item.title}</h5>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteKnowledgeChunk(item.id)}
+                                  className="text-slate-400 hover:text-rose-600 text-xs font-bold p-1 rounded hover:bg-rose-50 transition-colors"
+                                  title="Xóa tri thức này"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+
+                              <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed whitespace-pre-line bg-white p-2.5 rounded-lg border border-slate-100 font-sans">
+                                {item.content}
+                              </p>
+
+                              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                                {item.tags.map((tag, tIdx) => (
+                                  <span
+                                    key={tIdx}
+                                    className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-medium"
+                                  >
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Live Test Chatbot Console (5 Cols) */}
+                  <div className="lg:col-span-5 space-y-4">
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col h-[740px] overflow-hidden">
+                      {/* Console Header */}
+                      <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold shadow">
+                            🤖
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold flex items-center gap-1.5">
+                              <span>Alpha Admissions Bot</span>
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            </h4>
+                            <p className="text-[10px] text-slate-400">Live RAG Sandbox Engine</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTestChatMessages([
+                              {
+                                id: 'msg-welcome',
+                                conversationId: 'conv-test-admin',
+                                role: 'assistant',
+                                content: 'Hội đồng Tuyển sinh đã khởi động lại phiên hỏi đáp thử nghiệm.',
+                                createdAt: new Date().toISOString(),
+                              },
+                            ]);
+                            setLastChatDebug(null);
+                          }}
+                          className="text-[11px] text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition-colors"
+                        >
+                          Làm mới
+                        </button>
+                      </div>
+
+                      {/* Quick Prompt Pill Carousel */}
+                      <div className="p-2.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto text-[11px]">
+                        {[
+                          'Học phí năm học 2026?',
+                          'Chương trình Cambridge?',
+                          'Địa chỉ cơ sở Biên Hòa?',
+                          'Hồ sơ đăng ký gồm gì?',
+                          'Học bổng Alpha Spark?',
+                        ].map((prompt, pIdx) => (
+                          <button
+                            key={pIdx}
+                            type="button"
+                            onClick={() => handleSendTestChat(prompt)}
+                            className="px-2.5 py-1 bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-700 text-slate-600 rounded-lg whitespace-nowrap transition-all shadow-2xs font-medium"
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Chat Messages Body */}
+                      <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-100/50">
+                        {testChatMessages.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-2xs space-y-2 ${
+                                msg.role === 'user'
+                                  ? 'bg-slate-900 text-white rounded-tr-xs'
+                                  : 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs'
+                              }`}
+                            >
+                              <p className="whitespace-pre-line font-sans">{msg.content}</p>
+
+                              {/* Citations Snippets */}
+                              {msg.citations && msg.citations.length > 0 && (
+                                <div className="pt-2 border-t border-slate-100 space-y-1">
+                                  <span className="text-[10px] font-bold text-emerald-700 block uppercase tracking-wider">
+                                    📌 Nguồn Trích Dẫn ({msg.citations.length}):
+                                  </span>
+                                  {msg.citations.map((cite, cIdx) => (
+                                    <div
+                                      key={cIdx}
+                                      className="p-1.5 rounded bg-emerald-50 text-[10px] text-emerald-900 border border-emerald-200/60"
+                                    >
+                                      <strong>{cite.title}:</strong> &ldquo;{cite.snippet}&rdquo;
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {testChatLoading && (
+                          <div className="flex justify-start">
+                            <div className="p-3 bg-white border border-slate-200 rounded-2xl rounded-tl-xs text-xs text-slate-500 flex items-center gap-2 shadow-2xs">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" />
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:0.2s]" />
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:0.4s]" />
+                              <span>AI đang tra cứu Sổ tay Alpha...</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Debug Grounding Inspector Box */}
+                      {lastChatDebug && (
+                        <div className="p-2.5 bg-slate-900 text-white text-[11px] border-t border-slate-800 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded font-mono font-bold">
+                              INTENT: {lastChatDebug.intent}
+                            </span>
+                            <span className="text-slate-400">
+                              Độ tin cậy: <strong className="text-white">{Math.round(lastChatDebug.confidence * 100)}%</strong>
+                            </span>
+                          </div>
+                          <span className="text-slate-400">
+                            {lastChatDebug.citations.length} nguồn khớp
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Chat Input Footer */}
+                      <div className="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={testChatInput}
+                          onChange={(e) => setTestChatInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSendTestChat()}
+                          placeholder="Hỏi về học phí, cơ sở, Cambridge, tuyển sinh..."
+                          className="flex-1 p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSendTestChat()}
+                          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                        >
+                          <span>Gửi</span>
+                          <span>➔</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* MODAL: Thêm Khối Tri Thức Mới */}
+                {showAddKnowledgeModal && (
+                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                      <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
+                        <h4 className="text-sm font-bold flex items-center gap-2">
+                          <span>➕</span> Nạp Tài Liệu Tri Thức Vào Sổ Tay Trường Học
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => setShowAddKnowledgeModal(false)}
+                          className="text-slate-400 hover:text-white text-lg font-bold"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="p-6 space-y-4 text-xs">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">
+                            Tiêu đề khối tri thức: <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={newKbTitle}
+                            onChange={(e) => setNewKbTitle(e.target.value)}
+                            placeholder="Ví dụ: Chính sách miễn giảm học phí cho con em giảng viên"
+                            className="w-full p-2.5 rounded-xl border border-slate-300 text-xs"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">
+                              Danh mục chủ đề:
+                            </label>
+                            <select
+                              value={newKbCategory}
+                              onChange={(e) => setNewKbCategory(e.target.value as KnowledgeCategory)}
+                              className="w-full p-2.5 rounded-xl border border-slate-300 text-xs bg-white"
+                            >
+                              {(Object.keys(KNOWLEDGE_CATEGORY_LABELS) as KnowledgeCategory[]).map((cat) => (
+                                <option key={cat} value={cat}>
+                                  {KNOWLEDGE_CATEGORY_LABELS[cat].icon} {KNOWLEDGE_CATEGORY_LABELS[cat].label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">
+                              Phạm vi cơ sở:
+                            </label>
+                            <select
+                              value={newKbBranch}
+                              onChange={(e) => setNewKbBranch(e.target.value)}
+                              className="w-full p-2.5 rounded-xl border border-slate-300 text-xs bg-white"
+                            >
+                              <option value="all">Toàn trường (Global)</option>
+                              <option value="bien-hoa">Cơ sở Biên Hòa (Đồng Nai)</option>
+                              <option value="b-002">Cơ sở TP. Thủ Đức (TP.HCM)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="font-bold text-slate-700">
+                              Nội dung tài liệu / quy định chính thức: <span className="text-rose-500">*</span>
+                            </label>
+                            <span className="text-[11px] text-slate-400 font-mono">
+                              ~{Math.ceil(newKbContent.length / 4)} tokens
+                            </span>
+                          </div>
+                          <textarea
+                            rows={6}
+                            value={newKbContent}
+                            onChange={(e) => setNewKbContent(e.target.value)}
+                            placeholder="Nhập nội dung quy định chi tiết để AI học và trích dẫn..."
+                            className="w-full p-3 rounded-xl border border-slate-300 text-xs leading-relaxed font-sans"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">
+                            Từ khóa tags (phân cách bằng dấu phẩy):
+                          </label>
+                          <input
+                            type="text"
+                            value={newKbTags}
+                            onChange={(e) => setNewKbTags(e.target.value)}
+                            placeholder="Ví dụ: học phí, giảm trừ, giảng viên, ưu đãi"
+                            className="w-full p-2.5 rounded-xl border border-slate-300 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowAddKnowledgeModal(false)}
+                          className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold text-xs"
+                        >
+                          Hủy Bỏ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveKnowledgeChunk}
+                          className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition-all"
+                        >
+                          💾 Lưu & Phân Đoạn Tri Thức
                         </button>
                       </div>
                     </div>

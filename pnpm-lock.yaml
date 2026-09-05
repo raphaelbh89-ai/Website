@@ -20,6 +20,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@school-cms/ai-chatbot':
+        specifier: workspace:*
+        version: link:../../packages/ai-chatbot
       '@school-cms/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -78,6 +81,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@school-cms/ai-chatbot':
+        specifier: workspace:*
+        version: link:../../packages/ai-chatbot
       '@school-cms/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -124,6 +130,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@school-cms/ai-chatbot':
+        specifier: workspace:*
+        version: link:../../packages/ai-chatbot
       '@school-cms/blocks':
         specifier: workspace:*
         version: link:../../packages/blocks
@@ -170,6 +179,19 @@ importers:
       tailwindcss:
         specifier: ^3.4.4
         version: 3.4.19(tsx@4.23.13)
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
+  packages/ai-chatbot:
+    dependencies:
+      '@school-cms/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
       typescript:
         specifier: ^5.5.4
         version: 5.9.3

@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@school-cms/ai-chatbot": "workspace:*",
     "@school-cms/blocks": "workspace:*",
     "@school-cms/cms": "workspace:*",
     "@school-cms/seo": "workspace:*",

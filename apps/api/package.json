@@ -10,6 +10,7 @@
     "test": "tsx src/__tests__/test-runner.ts"
   },
   "dependencies": {
+    "@school-cms/ai-chatbot": "workspace:*",
     "@school-cms/auth": "workspace:*",
     "@school-cms/blocks": "workspace:*",
     "@school-cms/cms": "workspace:*",

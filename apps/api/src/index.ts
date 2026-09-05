@@ -44,6 +44,18 @@ import {
   dispatchWebhookEvent,
 } from './webhook';
 import { globalCacheManager } from './cache';
+import {
+  KnowledgeSource,
+  KnowledgeCategory,
+  ChatbotIntent,
+  BotConversation,
+  BotMessage,
+  INITIAL_KNOWLEDGE_SOURCES,
+  classifyIntent,
+  findRelevantKnowledge,
+  generateChatbotResponse,
+  formatSseChunk,
+} from '@school-cms/ai-chatbot';
 
 const server = Fastify({ logger: true });
 
@@ -2329,7 +2341,202 @@ server.get('/api/v1/admissions/stats', async (req) => {
 });
 
 // -------------------------------------------------------------
-// 14. SYSTEM HEALTH CHECK API
+// 14. AI CHATBOT & KNOWLEDGE BASE REST API
+// -------------------------------------------------------------
+const knowledgeBaseStore: KnowledgeSource[] = [...INITIAL_KNOWLEDGE_SOURCES];
+const chatbotConversationsStore: BotConversation[] = [
+  {
+    id: 'conv-sample-01',
+    branchId: 'bien-hoa',
+    visitorId: 'vis-9921',
+    title: 'Tư vấn học phí lớp 1 & Xe đưa đón Biên Hòa',
+    status: 'active',
+    messages: [
+      {
+        id: 'msg-01',
+        conversationId: 'conv-sample-01',
+        role: 'user',
+        content: 'Học phí lớp 1 cơ sở Biên Hòa bao nhiêu một tháng?',
+        createdAt: '2026-09-02T10:15:00.000Z',
+      },
+      {
+        id: 'msg-02',
+        conversationId: 'conv-sample-01',
+        role: 'assistant',
+        content: 'Dạ kính chào Quý phụ huynh! Em xin gửi thông tin chi tiết về Biểu phí & Học phí năm học 2026 - 2027 của Alpha School...',
+        matchedIntent: 'admissions_fee',
+        confidenceScore: 0.94,
+        citations: [
+          {
+            sourceId: 'kb-hoc-phi-2026',
+            title: 'Biểu phí & Chính sách tài chính năm học 2026 - 2027',
+            snippet: 'Biểu phí chuẩn hóa cho năm học 2026 - 2027 tại Hệ thống Trường Liên cấp Alpha School...',
+            category: 'hoc_phi',
+          },
+        ],
+        suggestedFollowUps: ['Hồ sơ đăng ký tuyển sinh gồm những gì?', 'Có chương trình học bổng không?'],
+        createdAt: '2026-09-02T10:15:02.000Z',
+      },
+    ],
+    createdAt: '2026-09-02T10:15:00.000Z',
+    updatedAt: '2026-09-02T10:15:02.000Z',
+  },
+];
+
+// 14.1 Gửi câu hỏi tư vấn tuyển sinh AI (Query / Chat)
+server.post('/api/v1/chatbot/query', async (req, reply) => {
+  const body = req.body as {
+    query?: string;
+    conversationId?: string;
+    branchId?: string | null;
+    visitorId?: string;
+  };
+
+  if (!body || !body.query || typeof body.query !== 'string' || body.query.trim().length === 0) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: { code: 'BAD_REQUEST', message: 'Nội dung câu hỏi không được để trống' },
+    });
+  }
+
+  const queryText = body.query.trim();
+  const branchId = body.branchId ?? null;
+  let convId = body.conversationId;
+
+  // Find or create conversation
+  let conv = chatbotConversationsStore.find((c) => c.id === convId);
+  if (!conv) {
+    convId = convId || `conv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    conv = {
+      id: convId,
+      branchId,
+      visitorId: body.visitorId || `vis-${Math.random().toString(36).substring(2, 8)}`,
+      title: queryText.slice(0, 40) + (queryText.length > 40 ? '...' : ''),
+      status: 'active',
+      messages: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    chatbotConversationsStore.unshift(conv);
+  }
+
+  // Record user message
+  const userMsg: BotMessage = {
+    id: `msg-${Date.now()}-u`,
+    conversationId: conv.id,
+    role: 'user',
+    content: queryText,
+    createdAt: new Date().toISOString(),
+  };
+  conv.messages.push(userMsg);
+
+  // Generate grounded AI response
+  const response = generateChatbotResponse(queryText, conv.messages, {
+    branchId,
+    conversationId: conv.id,
+    knowledgeSources: knowledgeBaseStore,
+  });
+
+  conv.messages.push(response.message);
+  conv.updatedAt = new Date().toISOString();
+
+  return formatSuccessResponse(response);
+});
+
+// 14.2 Danh sách nguồn tri thức sổ tay trường học (Knowledge Base)
+server.get('/api/v1/chatbot/knowledge', async (req) => {
+  const { category, branchId, search } = req.query as {
+    category?: KnowledgeCategory;
+    branchId?: string;
+    search?: string;
+  };
+
+  let results = [...knowledgeBaseStore];
+  if (category) {
+    results = results.filter((k) => k.category === category);
+  }
+  if (branchId) {
+    results = results.filter((k) => k.branchId === branchId || k.branchId === null);
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    results = results.filter(
+      (k) =>
+        k.title.toLowerCase().includes(q) ||
+        k.content.toLowerCase().includes(q) ||
+        k.tags.some((t) => t.toLowerCase().includes(q))
+    );
+  }
+
+  const totalTokens = knowledgeBaseStore.reduce((acc, curr) => acc + curr.tokenCount, 0);
+
+  return formatSuccessResponse(results, {
+    total: results.length,
+    totalIndexedChunks: knowledgeBaseStore.length,
+    totalTokens,
+  });
+});
+
+// 14.3 Thêm một tài liệu / quy tắc tri thức mới vào Knowledge Base
+server.post('/api/v1/chatbot/knowledge', async (req, reply) => {
+  const body = req.body as {
+    title: string;
+    category: KnowledgeCategory;
+    content: string;
+    branchId?: string | null;
+    tags?: string[];
+  };
+
+  if (!body.title || !body.category || !body.content) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: { code: 'VALIDATION_ERROR', message: 'Tiêu đề, danh mục và nội dung tri thức là bắt buộc' },
+    });
+  }
+
+  const tokenCount = Math.ceil(body.content.length / 4);
+  const newChunk: KnowledgeSource = {
+    id: `kb-custom-${Date.now()}`,
+    title: body.title.trim(),
+    category: body.category,
+    branchId: body.branchId || null,
+    content: body.content.trim(),
+    tokenCount,
+    tags: Array.isArray(body.tags) ? body.tags : [body.category],
+    updatedAt: new Date().toISOString(),
+  };
+
+  knowledgeBaseStore.unshift(newChunk);
+  return formatSuccessResponse(newChunk);
+});
+
+// 14.4 Xóa một khối tri thức khỏi Knowledge Base
+server.delete('/api/v1/chatbot/knowledge/:id', async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const idx = knowledgeBaseStore.findIndex((k) => k.id === id);
+  if (idx === -1) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy tài liệu tri thức này' },
+    });
+  }
+
+  const deleted = knowledgeBaseStore.splice(idx, 1)[0];
+  return formatSuccessResponse({ deleted: true, id: deleted.id, title: deleted.title });
+});
+
+// 14.5 Danh sách các phiên hội thoại của phụ huynh
+server.get('/api/v1/chatbot/conversations', async () => {
+  return formatSuccessResponse(chatbotConversationsStore, {
+    total: chatbotConversationsStore.length,
+  });
+});
+
+// -------------------------------------------------------------
+// 15. SYSTEM HEALTH CHECK API
 // -------------------------------------------------------------
 server.get('/api/v1/health', async () => {
   const cacheStats = globalCacheManager.getStats();
@@ -2348,6 +2555,8 @@ server.get('/api/v1/health', async () => {
       mediaCount: mediaStore.length,
       webhooksCount: getWebhooks().length,
       admissionsCount: admissionsStore.length,
+      knowledgeSourcesCount: knowledgeBaseStore.length,
+      chatbotConversationsCount: chatbotConversationsStore.length,
     },
   });
 });

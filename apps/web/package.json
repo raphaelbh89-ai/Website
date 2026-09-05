@@ -12,6 +12,7 @@
     "@school-cms/ai-chatbot": "workspace:*",
     "@school-cms/blocks": "workspace:*",
     "@school-cms/cms": "workspace:*",
+    "@school-cms/payment": "workspace:*",
     "@school-cms/seo": "workspace:*",
     "@school-cms/shared": "workspace:*",
     "@school-cms/theme": "workspace:*",

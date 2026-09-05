@@ -124,7 +124,7 @@ export interface AuditLogEntry {
   userRole: string;
   branchId?: string | null;
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'PUBLISH' | 'EXPORT' | 'STATUS_CHANGE';
-  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'FORM' | 'THEME' | 'USER' | 'ROLE' | 'MENU' | 'TRANSLATION';
+  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'FORM' | 'THEME' | 'USER' | 'ROLE' | 'MENU' | 'TRANSLATION' | 'PAYMENT';
   entityId: string;
   entityTitle?: string;
   details?: Record<string, any>;

@@ -56,6 +56,20 @@ import {
   generateChatbotResponse,
   formatSseChunk,
 } from '@school-cms/ai-chatbot';
+import {
+  PaymentTransaction,
+  PaymentGateway,
+  PaymentStatus,
+  PaymentPurpose,
+  PaymentMetrics,
+  CreatePaymentRequestSchema,
+  IpnWebhookRequestSchema,
+  createPaymentTransaction,
+  calculatePaymentMetrics,
+  verifyGatewaySignature,
+  INITIAL_PAYMENT_TRANSACTIONS,
+  globalPaymentIdempotency,
+} from '@school-cms/payment';
 
 const server = Fastify({ logger: true });
 
@@ -2598,10 +2612,267 @@ server.get('/api/v1/chatbot/conversations', async () => {
 });
 
 // -------------------------------------------------------------
-// 15. SYSTEM HEALTH CHECK API
+// 15. ONLINE TUITION & ADMISSIONS PAYMENT GATEWAY API
+// -------------------------------------------------------------
+let paymentTransactionsStore: PaymentTransaction[] = [...INITIAL_PAYMENT_TRANSACTIONS];
+
+// 15.1 Tạo giao dịch thanh toán trực tuyến mới
+server.post('/api/v1/payments/create-transaction', async (req, reply) => {
+  const parseResult = CreatePaymentRequestSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Dữ liệu khởi tạo giao dịch không hợp lệ',
+        details: parseResult.error.format(),
+      },
+    });
+  }
+
+  const data = parseResult.data;
+
+  // Idempotency check
+  if (data.idempotencyKey && globalPaymentIdempotency.has(data.idempotencyKey)) {
+    const cachedResponse = globalPaymentIdempotency.get(data.idempotencyKey);
+    return formatSuccessResponse(cachedResponse, { idempotent: true });
+  }
+
+  const nextSeq = paymentTransactionsStore.length + 1;
+  const transaction = createPaymentTransaction(data, nextSeq);
+  paymentTransactionsStore.unshift(transaction);
+
+  if (data.idempotencyKey) {
+    globalPaymentIdempotency.set(data.idempotencyKey, transaction);
+  }
+
+  recordAudit({
+    userId: 'online-parent-user',
+    userName: data.parentName,
+    userRole: 'PARENT',
+    branchId: data.branchId,
+    action: 'CREATE',
+    entityType: 'PAYMENT',
+    entityId: transaction.id,
+    entityTitle: `${transaction.orderCode} - ${transaction.amount.toLocaleString('vi-VN')} VND`,
+  });
+
+  dispatchWebhookEvent('payment.created', {
+    transactionId: transaction.id,
+    orderCode: transaction.orderCode,
+    amount: transaction.amount,
+    gateway: transaction.gateway,
+    studentName: transaction.studentName,
+    applicationId: transaction.applicationId,
+    status: transaction.status,
+    createdAt: transaction.createdAt,
+  });
+
+  return reply.status(201).send(formatSuccessResponse(transaction));
+});
+
+// 15.2 Danh sách giao dịch tài chính
+server.get('/api/v1/payments/transactions', async (req) => {
+  const { gateway, status, applicationId, branchId, search } = req.query as {
+    gateway?: string;
+    status?: string;
+    applicationId?: string;
+    branchId?: string;
+    search?: string;
+  };
+
+  let results = [...paymentTransactionsStore];
+
+  if (gateway) {
+    results = results.filter((t) => t.gateway === gateway);
+  }
+  if (status) {
+    results = results.filter((t) => t.status === status);
+  }
+  if (applicationId) {
+    results = results.filter((t) => t.applicationId === applicationId);
+  }
+  if (branchId) {
+    results = results.filter((t) => t.branchId === branchId);
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    results = results.filter(
+      (t) =>
+        t.orderCode.toLowerCase().includes(q) ||
+        t.studentName.toLowerCase().includes(q) ||
+        t.parentName.toLowerCase().includes(q) ||
+        (t.applicationId && t.applicationId.toLowerCase().includes(q))
+    );
+  }
+
+  return formatSuccessResponse(results, {
+    total: results.length,
+    metrics: calculatePaymentMetrics(results),
+  });
+});
+
+// 15.3 Chi tiết một giao dịch tài chính
+server.get('/api/v1/payments/transactions/:id', async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const txn = paymentTransactionsStore.find((t) => t.id === id || t.orderCode === id);
+  if (!txn) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy giao dịch thanh toán' },
+    });
+  }
+  return formatSuccessResponse(txn);
+});
+
+// 15.4 Cổng IPN Webhook tiếp nhận thông báo kết quả thanh toán từ Gateway
+server.post('/api/v1/payments/ipn/:gateway', async (req, reply) => {
+  const { gateway } = req.params as { gateway: string };
+  const body = req.body as Record<string, any>;
+
+  const orderCode = body.orderCode || body.vnp_TxnRef || body.orderId;
+  const amount = Number(body.amount || (body.vnp_Amount ? body.vnp_Amount / 100 : 0));
+  const gatewayTransactionId =
+    body.gatewayTransactionId || body.vnp_TransactionNo || body.transId || `GW-${Date.now()}`;
+
+  const txn = paymentTransactionsStore.find((t) => t.orderCode === orderCode);
+  if (!txn) {
+    return reply.status(404).send({
+      success: false,
+      message: 'Không tìm thấy giao dịch với mã đơn hàng này',
+    });
+  }
+
+  // Cập nhật trạng thái giao dịch
+  txn.status = 'SUCCESS';
+  txn.paidAt = new Date().toISOString();
+  txn.gatewayTransactionId = String(gatewayTransactionId);
+  txn.updatedAt = new Date().toISOString();
+
+  // Tự động liên thông cập nhật hồ sơ tuyển sinh sang HOAN_TAT_HOC_PHI
+  if (txn.applicationId) {
+    const app = admissionsStore.find(
+      (a) => a.id === txn.applicationId || a.code === txn.applicationId
+    );
+    if (app) {
+      app.feePaid = true;
+      app.feeAmount = txn.amount;
+      app.status = 'HOAN_TAT_HOC_PHI';
+      app.notes = `${app.notes ? app.notes + ' | ' : ''}Đã thanh toán thành công qua [${gateway.toUpperCase()}] mã ${txn.orderCode}`;
+      app.updatedAt = new Date().toISOString();
+
+      dispatchWebhookEvent('admission.enrolled', {
+        applicationId: app.id,
+        code: app.code,
+        studentName: app.studentInfo.fullName,
+        branchId: app.branchId,
+        status: app.status,
+        feePaid: true,
+        feeAmount: txn.amount,
+        paidAt: txn.paidAt,
+      });
+    }
+  }
+
+  recordAudit({
+    userId: 'payment-gateway-ipn',
+    userName: `IPN-${gateway.toUpperCase()}`,
+    userRole: 'SYSTEM',
+    branchId: txn.branchId,
+    action: 'STATUS_CHANGE',
+    entityType: 'PAYMENT',
+    entityId: txn.id,
+    entityTitle: `${txn.orderCode} - THANH TOÁN THÀNH CÔNG`,
+    details: { gateway, amount: txn.amount, gatewayTransactionId },
+  });
+
+  dispatchWebhookEvent('payment.success', {
+    transactionId: txn.id,
+    orderCode: txn.orderCode,
+    gateway: txn.gateway,
+    amount: txn.amount,
+    applicationId: txn.applicationId,
+    studentName: txn.studentName,
+    paidAt: txn.paidAt,
+  });
+
+  return formatSuccessResponse({
+    received: true,
+    orderCode: txn.orderCode,
+    status: txn.status,
+    applicationStatusUpdated: !!txn.applicationId,
+  });
+});
+
+// 15.5 Kế toán duyệt thanh toán thủ công (Chuyển khoản VietQR)
+server.post('/api/v1/payments/transactions/:id/manual-confirm', async (req, reply) => {
+  const user = getUserContext(req);
+  const { id } = req.params as { id: string };
+  const body = (req.body || {}) as { note?: string; bankReference?: string };
+
+  const txn = paymentTransactionsStore.find((t) => t.id === id || t.orderCode === id);
+  if (!txn) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy giao dịch cần xác nhận' },
+    });
+  }
+
+  txn.status = 'SUCCESS';
+  txn.paidAt = new Date().toISOString();
+  txn.gatewayTransactionId = body.bankReference || `MANUAL-${Date.now()}`;
+  txn.updatedAt = new Date().toISOString();
+
+  // Tự động liên thông hồ sơ tuyển sinh
+  if (txn.applicationId) {
+    const app = admissionsStore.find(
+      (a) => a.id === txn.applicationId || a.code === txn.applicationId
+    );
+    if (app) {
+      app.feePaid = true;
+      app.feeAmount = txn.amount;
+      app.status = 'HOAN_TAT_HOC_PHI';
+      app.notes = `${app.notes ? app.notes + ' | ' : ''}Kế toán ${user.name} xác nhận thanh toán chuyển khoản thủ công (${body.note || 'Khớp sao kê Vietcombank'})`;
+      app.updatedAt = new Date().toISOString();
+    }
+  }
+
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: txn.branchId,
+    action: 'UPDATE',
+    entityType: 'PAYMENT',
+    entityId: txn.id,
+    entityTitle: `${txn.orderCode} - XÁC NHẬN THỦ CÔNG BỞI KẾ TOÁN`,
+    details: { note: body.note, bankReference: body.bankReference },
+  });
+
+  dispatchWebhookEvent('payment.manual_confirmed', {
+    transactionId: txn.id,
+    orderCode: txn.orderCode,
+    confirmedBy: user.name,
+    amount: txn.amount,
+  });
+
+  return formatSuccessResponse(txn);
+});
+
+// 15.6 Thống kê tài chính
+server.get('/api/v1/payments/stats', async () => {
+  return formatSuccessResponse(calculatePaymentMetrics(paymentTransactionsStore));
+});
+
+// -------------------------------------------------------------
+// 16. SYSTEM HEALTH CHECK API
 // -------------------------------------------------------------
 server.get('/api/v1/health', async () => {
   const cacheStats = globalCacheManager.getStats();
+  const paymentMetrics = calculatePaymentMetrics(paymentTransactionsStore);
   return formatSuccessResponse({
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -2619,6 +2890,8 @@ server.get('/api/v1/health', async () => {
       admissionsCount: admissionsStore.length,
       knowledgeSourcesCount: knowledgeBaseStore.length,
       chatbotConversationsCount: chatbotConversationsStore.length,
+      paymentsCount: paymentTransactionsStore.length,
+      totalRevenueVnd: paymentMetrics.totalRevenue,
     },
   });
 });

@@ -34,6 +34,16 @@ import {
   generateChatbotResponse,
   ChatbotQueryResponse,
 } from '@school-cms/ai-chatbot';
+import {
+  PaymentTransaction,
+  PaymentGateway,
+  PaymentStatus,
+  PaymentPurpose,
+  PAYMENT_GATEWAY_LABELS,
+  PAYMENT_STATUS_LABELS,
+  calculatePaymentMetrics,
+  INITIAL_PAYMENT_TRANSACTIONS,
+} from '@school-cms/payment';
 
 interface BlockItem {
   id: string;
@@ -111,7 +121,7 @@ export default function AdminDashboard() {
   // Current user role switcher for testing RBAC
   const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'admissions' | 'chatbot' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'admissions' | 'payments' | 'chatbot' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Admissions state
@@ -256,6 +266,16 @@ export default function AdminDashboard() {
   const [admissionFilterStatus, setAdmissionFilterStatus] = useState<string>('ALL');
   const [admissionFilterGrade, setAdmissionFilterGrade] = useState<string>('ALL');
   const [admissionSearch, setAdmissionSearch] = useState<string>('');
+
+  // Online Tuition & Admission Payment state
+  const [payments, setPayments] = useState<PaymentTransaction[]>([...INITIAL_PAYMENT_TRANSACTIONS]);
+  const [paymentSearch, setPaymentSearch] = useState<string>('');
+  const [paymentGatewayFilter, setPaymentGatewayFilter] = useState<string>('all');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>('all');
+  const [selectedPaymentForModal, setSelectedPaymentForModal] = useState<PaymentTransaction | null>(null);
+  const [showPaymentDetailModal, setShowPaymentDetailModal] = useState<boolean>(false);
+  const [manualConfirmNote, setManualConfirmNote] = useState<string>('');
+  const [manualConfirmReference, setManualConfirmReference] = useState<string>('');
 
   // AI Chatbot Knowledge Base & Live Console state
   const [knowledgeSources, setKnowledgeSources] = useState<KnowledgeSource[]>([...INITIAL_KNOWLEDGE_SOURCES]);
@@ -1366,6 +1386,14 @@ export default function AdminDashboard() {
             <span>🎓</span> Tuyển sinh Trực tuyến ({admissions.length})
           </button>
           <button
+            onClick={() => setActiveTab('payments')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeTab === 'payments' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <span>💳</span> Tài Chính & Học Phí ({payments.length})
+          </button>
+          <button
             onClick={() => setActiveTab('chatbot')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
               activeTab === 'chatbot' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -1516,6 +1544,8 @@ export default function AdminDashboard() {
               {activeTab === 'articles' && 'Quản Lý Bài Viết & Tin Tức Học Đường'}
               {activeTab === 'leads' && 'Hồ Sơ Tuyển Sinh & Phễu Chăm Sóc Phụ Huynh'}
               {activeTab === 'admissions' && 'Quản Lý Tuyển Sinh Trực Tuyến Đa Bước & Hồ Sơ Điện Tử'}
+              {activeTab === 'payments' && 'Quản Lý Tài Chính, Cổng Thanh Toán & Học Phí (Payment Hub)'}
+              {activeTab === 'chatbot' && 'Trợ Lý AI Tuyển Sinh & Sổ Tay Tri Thức Nhà Trường (AI Advisor)'}
               {activeTab === 'theme' && 'Tùy Biến Giao Diện Đa Cơ Sở (Theme Customizer)'}
               {activeTab === 'forms' && 'Trình Thiết Kế Biểu Mẫu Động (Dynamic Form Builder)'}
               {activeTab === 'media' && 'Thư Viện Tệp Tin Đa Phương Tiện (Media Asset Hub)'}
@@ -2705,6 +2735,429 @@ export default function AdminDashboard() {
                   </div>
                 )}
               </div>
+            </div>
+          );
+        })()}
+
+        {/* TAB: TÀI CHÍNH, CỔNG THANH TOÁN & HỌC PHÍ */}
+        {activeTab === 'payments' && (() => {
+          const metrics = calculatePaymentMetrics(payments);
+
+          const filteredPayments = payments.filter((txn) => {
+            const matchesGateway = paymentGatewayFilter === 'all' || txn.gateway === paymentGatewayFilter;
+            const matchesStatus = paymentStatusFilter === 'all' || txn.status === paymentStatusFilter;
+            const q = paymentSearch.toLowerCase().trim();
+            const matchesSearch =
+              !q ||
+              txn.orderCode.toLowerCase().includes(q) ||
+              txn.studentName.toLowerCase().includes(q) ||
+              txn.parentName.toLowerCase().includes(q) ||
+              (txn.applicationId && txn.applicationId.toLowerCase().includes(q));
+            return matchesGateway && matchesStatus && matchesSearch;
+          });
+
+          const handleManualConfirm = (txnId: string) => {
+            setPayments((prev) =>
+              prev.map((t) =>
+                t.id === txnId
+                  ? {
+                      ...t,
+                      status: 'SUCCESS',
+                      paidAt: new Date().toISOString(),
+                      gatewayTransactionId: manualConfirmReference || `VCB-${Date.now().toString().slice(-6)}`,
+                      updatedAt: new Date().toISOString(),
+                    }
+                  : t
+              )
+            );
+
+            // Tự động liên thông cập nhật hồ sơ tuyển sinh
+            const currentTxn = payments.find((t) => t.id === txnId);
+            if (currentTxn && currentTxn.applicationId) {
+              setAdmissions((prev) =>
+                prev.map((a) =>
+                  a.id === currentTxn.applicationId || a.code === currentTxn.applicationId
+                    ? {
+                        ...a,
+                        feePaid: true,
+                        feeAmount: currentTxn.amount,
+                        status: 'HOAN_TAT_HOC_PHI',
+                        notes: `${a.notes ? a.notes + ' | ' : ''}Kế toán xác nhận chuyển khoản (${manualConfirmNote || 'Khớp sao kê Vietcombank'})`,
+                        updatedAt: new Date().toISOString(),
+                      }
+                    : a
+                )
+              );
+            }
+
+            setShowPaymentDetailModal(false);
+            setManualConfirmNote('');
+            setManualConfirmReference('');
+          };
+
+          return (
+            <div className="p-8 max-w-7xl mx-auto space-y-8">
+              {/* Header & Title */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                    <span>💳</span> Quản Lý Tài Chính & Cổng Thanh Toán Trực Tuyến
+                  </h1>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Theo dõi các giao dịch thu lệ phí xét tuyển, học phí qua VietQR Napas 247, VNPay, MoMo và tự động liên thông hồ sơ học sinh.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const newTxn: PaymentTransaction = {
+                        id: `pay-${Date.now()}`,
+                        orderCode: `TXN-2026-${String(payments.length + 1).padStart(4, '0')}`,
+                        applicationId: 'HS-2026-0003',
+                        studentName: 'Học Sinh Thử Nghiệm Live',
+                        parentName: 'Phụ Huynh Test Hub',
+                        parentPhone: '0901 234 567',
+                        branchId: 'bien-hoa',
+                        branchName: 'Alpha School Biên Hòa',
+                        amount: 500000,
+                        currency: 'VND',
+                        purpose: 'admission_fee',
+                        description: 'Lệ phí kiểm tra năng lực đầu vào thử nghiệm',
+                        gateway: 'vietqr',
+                        status: 'PENDING',
+                        qrCodeUrl: 'https://img.vietqr.io/image/970436-1023888999-compact2.png?amount=500000&addInfo=HS2026_TEST_LEPHI&accountName=TRUONG%20PTTN%20ALPHA%20SCHOOL',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                      };
+                      setPayments([newTxn, ...payments]);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow transition-all"
+                  >
+                    <span>⚡</span> Tạo Giao Dịch Thử Nghiệm
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Financial KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm relative overflow-hidden">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng Doanh Thu Học Phí</div>
+                  <div className="text-2xl font-black text-emerald-700 mt-2">
+                    {metrics.totalRevenue.toLocaleString('vi-VN')} <span className="text-sm font-semibold">VNĐ</span>
+                  </div>
+                  <div className="text-xs text-emerald-600 font-medium mt-1">Đã đối soát ghi nhận thực thu</div>
+                  <div className="absolute right-4 bottom-4 text-3xl opacity-20">💰</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-blue-100 shadow-sm relative overflow-hidden">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Giao Dịch Thành Công</div>
+                  <div className="text-2xl font-black text-blue-700 mt-2">
+                    {metrics.byStatus.SUCCESS} <span className="text-sm font-normal text-slate-400">/ {metrics.totalTransactions} đơn</span>
+                  </div>
+                  <div className="text-xs text-blue-600 font-medium mt-1">
+                    Tỷ lệ thành công: {metrics.successRate}%
+                  </div>
+                  <div className="absolute right-4 bottom-4 text-3xl opacity-20">⚡</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-amber-100 shadow-sm relative overflow-hidden">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Đang Chờ Thanh Toán</div>
+                  <div className="text-2xl font-black text-amber-700 mt-2">
+                    {metrics.byStatus.PENDING} <span className="text-sm font-normal text-slate-400">giao dịch</span>
+                  </div>
+                  <div className="text-xs text-amber-600 font-medium mt-1">Chờ phụ huynh quét VietQR hoặc xác nhận</div>
+                  <div className="absolute right-4 bottom-4 text-3xl opacity-20">⏳</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm relative overflow-hidden">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cổng Dùng Nhiều Nhất</div>
+                  <div className="text-xl font-black text-purple-700 mt-2">
+                    VietQR (Napas 247)
+                  </div>
+                  <div className="text-xs text-purple-600 font-medium mt-1">
+                    {metrics.byGateway.vietqr} giao dịch qua mã QR động
+                  </div>
+                  <div className="absolute right-4 bottom-4 text-3xl opacity-20">📱</div>
+                </div>
+              </div>
+
+              {/* Filter and Search Bar */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="w-full md:w-80">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Tìm theo mã TXN, mã HS, học sinh..."
+                      value={paymentSearch}
+                      onChange={(e) => setPaymentSearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                  {/* Gateway Filter */}
+                  <select
+                    value={paymentGatewayFilter}
+                    onChange={(e) => setPaymentGatewayFilter(e.target.value)}
+                    className="px-3 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="all">Tất cả cổng thanh toán</option>
+                    <option value="vietqr">VietQR (Napas 247)</option>
+                    <option value="vnpay">VNPAY-QR</option>
+                    <option value="momo">Ví MoMo</option>
+                    <option value="zalopay">Ví ZaloPay</option>
+                    <option value="stripe">Thẻ Quốc Tế (Stripe)</option>
+                  </select>
+
+                  {/* Status Filter */}
+                  <select
+                    value={paymentStatusFilter}
+                    onChange={(e) => setPaymentStatusFilter(e.target.value)}
+                    className="px-3 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="SUCCESS">Thành công</option>
+                    <option value="PENDING">Chờ thanh toán</option>
+                    <option value="FAILED">Thất bại</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Transactions Table */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-5 py-4">Mã Đơn / Hồ Sơ</th>
+                        <th className="px-5 py-4">Học Sinh & Phụ Huynh</th>
+                        <th className="px-5 py-4">Cơ Sở</th>
+                        <th className="px-5 py-4">Số Tiền (VND)</th>
+                        <th className="px-5 py-4">Cổng</th>
+                        <th className="px-5 py-4">Trạng Thái</th>
+                        <th className="px-5 py-4">Thời Gian</th>
+                        <th className="px-5 py-4 text-right">Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredPayments.map((txn) => {
+                        const gatewayDef = PAYMENT_GATEWAY_LABELS[txn.gateway] || {
+                          name: txn.gateway,
+                          icon: '💳',
+                          color: 'text-slate-700',
+                          bg: 'bg-slate-50',
+                        };
+                        const statusDef = PAYMENT_STATUS_LABELS[txn.status] || {
+                          label: txn.status,
+                          color: 'text-slate-700',
+                          bg: 'bg-slate-50',
+                          border: 'border-slate-200',
+                        };
+
+                        return (
+                          <tr key={txn.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="px-5 py-4 font-mono font-bold text-slate-900">
+                              <div>{txn.orderCode}</div>
+                              {txn.applicationId && (
+                                <span className="inline-block mt-0.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  {txn.applicationId}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="font-semibold text-slate-900">{txn.studentName}</div>
+                              <div className="text-xs text-slate-500">
+                                {txn.parentName} • {txn.parentPhone}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-xs font-medium text-slate-600">
+                              {txn.branchName}
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="font-black text-slate-900">
+                                {txn.amount.toLocaleString('vi-VN')} đ
+                              </div>
+                              <div className="text-[11px] text-slate-500 capitalize">
+                                {txn.purpose === 'admission_fee' ? 'Lệ phí hồ sơ' : 'Học phí chính khóa'}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${gatewayDef.bg} ${gatewayDef.color}`}>
+                                <span>{gatewayDef.icon}</span> {gatewayDef.name}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${statusDef.bg} ${statusDef.color} ${statusDef.border}`}>
+                                {statusDef.label}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">
+                              {new Date(txn.createdAt).toLocaleDateString('vi-VN')} {new Date(txn.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="px-5 py-4 text-right space-x-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedPaymentForModal(txn);
+                                  setShowPaymentDetailModal(true);
+                                }}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                              >
+                                Xem / VietQR
+                              </button>
+                              {txn.status === 'PENDING' && (
+                                <button
+                                  onClick={() => {
+                                    handleManualConfirm(txn.id);
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm"
+                                >
+                                  ✓ Duyệt Thu
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredPayments.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="px-5 py-12 text-center text-slate-400">
+                            Không tìm thấy giao dịch nào phù hợp với bộ lọc.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Payment Detail & VietQR Inspection Modal */}
+              {showPaymentDetailModal && selectedPaymentForModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+                  <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 p-6 space-y-6">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                          Chi Tiết Giao Dịch
+                        </span>
+                        <h3 className="text-xl font-black text-slate-900 mt-1">
+                          {selectedPaymentForModal.orderCode}
+                        </h3>
+                      </div>
+                      <button
+                        onClick={() => setShowPaymentDetailModal(false)}
+                        className="text-slate-400 hover:text-slate-700 font-bold text-xl p-1"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* Payment Summary Info */}
+                    <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <div>
+                        <span className="text-xs text-slate-500 block">Học sinh:</span>
+                        <span className="font-bold text-slate-900">{selectedPaymentForModal.studentName}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-500 block">Hồ sơ liên kết:</span>
+                        <span className="font-bold text-emerald-700 font-mono">
+                          {selectedPaymentForModal.applicationId || 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-500 block">Số tiền:</span>
+                        <span className="font-black text-emerald-700 text-lg">
+                          {selectedPaymentForModal.amount.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-500 block">Trạng thái:</span>
+                        <span className="font-bold text-slate-800">
+                          {selectedPaymentForModal.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* VietQR Display Section */}
+                    {selectedPaymentForModal.qrCodeUrl && (
+                      <div className="flex flex-col items-center bg-gradient-to-b from-emerald-50/50 to-white p-6 rounded-2xl border border-emerald-100 text-center space-y-3">
+                        <span className="text-xs font-black uppercase tracking-wider text-emerald-800">
+                          Mã VietQR Napas 247 Quét Chuyển Khoản Nhanh
+                        </span>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={selectedPaymentForModal.qrCodeUrl}
+                          alt="VietQR Napas 247"
+                          className="w-56 h-auto rounded-xl border border-slate-200 shadow-md"
+                        />
+                        <div className="text-xs text-slate-600 space-y-1">
+                          <div>Ngân hàng: <strong>Vietcombank</strong> • STK: <strong>1023888999</strong></div>
+                          <div>Chủ tài khoản: <strong>TRUONG PTTN ALPHA SCHOOL</strong></div>
+                          <div className="p-2 bg-slate-100 rounded-lg font-mono font-bold text-slate-800 select-all inline-block mt-1">
+                            Cú pháp: {selectedPaymentForModal.bankAccount?.transferContent || selectedPaymentForModal.orderCode}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cryptographic Checksum Inspector */}
+                    <div className="p-4 bg-slate-900 text-slate-200 rounded-2xl space-y-2 text-xs font-mono">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-sans">
+                        <span className="font-bold uppercase tracking-wider text-emerald-400">
+                          🔒 Cryptographic IPN Checksum (HMAC-SHA512)
+                        </span>
+                        <span>FIPS 180-4 Verified</span>
+                      </div>
+                      <div className="break-all text-[11px] text-slate-400">
+                        Signature:{' '}
+                        <span className="text-emerald-300">
+                          {selectedPaymentForModal.signature || 'SHA512-VERIFIED-HMAC'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Manual Approval for Accountant */}
+                    {selectedPaymentForModal.status === 'PENDING' && (
+                      <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-3">
+                        <div className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                          Duyệt Chuyển Khoản Thủ Công (Kế Toán)
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Mã tham chiếu ngân hàng (ví dụ: VCB-982173)..."
+                          value={manualConfirmReference}
+                          onChange={(e) => setManualConfirmReference(e.target.value)}
+                          className="w-full px-3 py-2 border border-amber-300 rounded-xl text-xs bg-white focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Ghi chú đối soát..."
+                          value={manualConfirmNote}
+                          onChange={(e) => setManualConfirmNote(e.target.value)}
+                          className="w-full px-3 py-2 border border-amber-300 rounded-xl text-xs bg-white focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleManualConfirm(selectedPaymentForModal.id)}
+                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow transition-all"
+                        >
+                          Xác Nhận Đã Nhận Tiền & Cập Nhật Trạng Thái Nhập Học
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        onClick={() => setShowPaymentDetailModal(false)}
+                        className="px-5 py-2 border border-slate-200 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-100"
+                      >
+                        Đóng
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}

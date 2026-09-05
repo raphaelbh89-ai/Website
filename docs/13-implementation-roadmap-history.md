@@ -25,7 +25,11 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 15** | SEO Rich Snippets (Schema.org FAQPage & Breadcrumbs), Làm sạch Form Chống XSS & 20 Tests | Hoàn thành | `e9821e1` |
 | **Phase 16** | Bảng Điều Phối Tuyển Sinh Kanban (4 cột, KPI Conversion Rate), Webhook HMAC-SHA256 & 22 Tests | Hoàn thành | `c6eaca2` |
 | **Phase 17** | Mở rộng 10 Blocks Chuẩn (Statistics, CTA Banner), Media Asset Optimization Engine, Webhook Test Console & 26 Tests | Hoàn thành | `e5586dc` |
-| **Phase 18** | Thư viện 12 Blocks (Gallery, Contact Box), On-Demand Cache Invalidation, Multi-Tier Performance Dashboard & 30 Tests | Hoàn thành | `Đang cập nhật` |
+| **Phase 18** | Thư viện 12 Blocks (Gallery, Contact Box), On-Demand Cache Invalidation, Multi-Tier Performance Dashboard & 30 Tests | Hoàn thành | `7004ebb` |
+| **Phase 19** | Hoàn thiện 16 Blocks Chuẩn (Video, Google Map, Rich Text, Image Text), Wizard Tuyển Sinh 4 Bước & 35 Tests | Hoàn thành | `4905a28` |
+| **Phase 20** | Package Trợ Lý AI Tuyển Sinh RAG `@school-cms/ai-chatbot`, Sổ Tay Tri Thức Đa Cơ Sở, Sandbox Console & 40 Tests | Hoàn thành | `a5b9637` |
+| **Phase 21** | Đa Cơ Sở Hybrid Subdomain Routing, Scoped Theming, Xem Trước Bảo Mật HMAC & So Sánh Snapshot Diff & 45 Tests | Hoàn thành | `ee74d60` |
+| **Phase 22** | Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN & 50 Tests | Hoàn thành | `Đang cập nhật` |
 
 ---
 
@@ -219,6 +223,53 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
     - Nút `🔒 Xem Trước (HMAC)` tại thanh tiêu đề: mở modal sinh link bảo mật, hỗ trợ copy 1-chạm vào clipboard và mở tab mới.
     - Nút `⚖️ So Sánh Diff` trên thẻ lịch sử phiên bản: mở modal Diff Inspector trực quan với 4 thẻ KPI (+Added, -Removed, ΔModified, =Unchanged) cùng bảng chi tiết từng thuộc tính thay đổi.
   - `apps/api/src/__tests__/test-runner.ts`: Bổ sung 5 bài kiểm thử tự động chuyên sâu (Tests 41 - 45) nâng tổng số lên **45 tests passing 100%**.
+
+### Phase 22: Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN Checksum & Tự Động Chuyển Trạng Thái Tuyển Sinh (Commit: Đang cập nhật)
+- **Tài liệu tham chiếu**:
+  - `docs/11-extensibility.md` Section 11.4 Câu hỏi 3: Triển khai Cổng thanh toán trực tuyến (VietQR, VNPay, MoMo, Idempotency, HMAC IPN Webhook).
+  - `docs/07-security.md` Section 7.4 & 7.5: Kiểm toán giao dịch, mã hóa chữ ký số và phòng chống trừ tiền trùng lặp (Double-charging prevention).
+- **Tệp tin**:
+  - `packages/payment/package.json` & `packages/payment/tsconfig.json`: Khởi tạo package thanh toán độc lập `@school-cms/payment` tuân thủ kiến trúc Decoupled Monorepo.
+  - `packages/payment/src/schema.ts`:
+    - Định nghĩa các kiểu `PaymentGateway` (`'vietqr' | 'vnpay' | 'momo' | 'stripe' | 'manual_bank'`), `PaymentStatus` (`'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED' | 'EXPIRED'`), `PaymentPurpose` (`'tuition' | 'admission_fee' | 'uniform' | 'bus_meal' | 'other'`).
+    - Lược đồ Zod `PaymentTransaction`, `CreatePaymentRequestSchema`, `IpnWebhookRequestSchema`, cùng bảng nhãn badge và mã màu hiển thị.
+  - `packages/payment/src/signature.ts`:
+    - Động cơ ký số và kiểm tra tính hợp lệ Isomorphic HMAC-SHA512 (`generateGatewaySignature`, `verifyGatewaySignature`).
+    - Thuật toán sắp xếp thứ tự tham số từ điển chuẩn (Canonical parameter sorting) tương thích tiêu chuẩn kỹ thuật VNPay / MoMo / Napas.
+    - So sánh chuỗi an toàn chống Timing Attack (`timingSafeEqualStrings`).
+  - `packages/payment/src/vietqr.ts`:
+    - Tiêu chuẩn tạo nội dung chuyển khoản tự động (`formatTransferContent`: ví dụ `'HS2026_0042_LEPHI'`, `'HS2026_0042_HOCPHI'`).
+    - Cấu hình ngân hàng mặc định nhà trường (`DEFAULT_SCHOOL_BANK`: Vietcombank).
+    - Bộ sinh mã VietQR Napas 247 payload (`generateVietQrPayload`) kèm link ảnh QR API `img.vietqr.io` và app deep-link `vietqr://transfer`.
+  - `packages/payment/src/idempotency.ts`:
+    - Trình quản lý khóa chống trùng lặp `IdempotencyManager` và biến thể toàn cục `globalPaymentIdempotency` ngăn chặn phụ huynh bấm thanh toán nhiều lần gây duplicate transactions.
+  - `packages/payment/src/transaction-engine.ts`:
+    - Bộ sinh mã giao dịch tuần tự bảo đảm an toàn `generateOrderCode('TXN')` -> `TXN-2026-XXXX`.
+    - Bộ khởi tạo giao dịch `createPaymentTransaction()` và tính toán số liệu tổng hợp doanh thu `calculatePaymentMetrics()`.
+  - `packages/payment/src/index.ts`: Barrel export toàn diện cho toàn monorepo.
+  - `apps/api/src/index.ts`:
+    - Section 15 Payment REST API:
+      - `POST /api/v1/payments/create-transaction`: Tạo giao dịch thanh toán kèm kiểm tra idempotency key.
+      - `GET /api/v1/payments/transactions`: Tra cứu danh sách giao dịch có phân trang, bộ lọc trạng thái, cổng và tìm kiếm.
+      - `GET /api/v1/payments/transactions/:id`: Tra cứu chi tiết một giao dịch thanh toán.
+      - `POST /api/v1/payments/ipn/:gateway`: Tiếp nhận IPN Webhook callback từ cổng thanh toán, tự động xác thực chữ ký số HMAC-SHA512, cập nhật trạng thái `SUCCESS`, tự động tìm kiếm hồ sơ tuyển sinh tương ứng để chuyển `feePaid = true`, `feeAmount = amount`, và đẩy trạng thái sang `HOAN_TAT_HOC_PHI`.
+      - `POST /api/v1/payments/transactions/:id/manual-confirm`: Dành cho kế toán nhà trường xác nhận giao dịch chuyển khoản truyền thống.
+      - `GET /api/v1/payments/stats`: Thống kê tài chính thời gian thực.
+    - Nâng cấp endpoint `/api/v1/health` báo cáo số lượng giao dịch và tổng doanh thu thực thu.
+  - `apps/admin/src/app/page.tsx`:
+    - Bổ sung tab **💳 Tài Chính & Học Phí (Payment Hub)** tại thanh điều hướng sidebar.
+    - 4 thẻ KPI tài chính cao cấp: Tổng Doanh Thu Thực Thu (VND), Giao Dịch Thành Công, Đang Chờ Xử Lý, Tỷ Lệ Thanh Toán Thành Công (%).
+    - Thanh tìm kiếm và bộ lọc đa chiều (theo Cổng thanh toán, Trạng thái giao dịch, Cơ sở).
+    - Bảng danh sách giao dịch chuyên nghiệp hiển thị mã giao dịch, học sinh, phụ huynh, cơ sở, mục đích, số tiền VND và cổng thanh toán.
+    - Modal Tra cứu Chi tiết & Kiểm toán Giao dịch: Xem ảnh QR Napas 247, Thanh tra Chữ ký số HMAC-SHA512 (Signature Inspector), và Nút duyệt kế toán thủ công 1-chạm.
+  - `apps/web/src/app/tuyen-sinh/thanh-toan/[orderCode]/page.tsx`:
+    - Cổng thanh toán công cộng dành cho phụ huynh học sinh sau khi trúng tuyển hoặc nộp lệ phí hồ sơ.
+    - Hiển thị thông tin hồ sơ học sinh, cơ sở đăng ký, chi tiết khoản thu.
+    - Tích hợp 4 cổng: **VietQR Napas 247**, **VNPay**, **MoMo QR**, **Thẻ quốc tế Stripe**.
+    - Hiển thị thông tin chuyển khoản trực quan, nút sao chép số tài khoản / nội dung 1-chạm.
+    - Nút Giả lập thanh toán tức thì (Sandbox Simulation Mode) kích hoạt quy trình xác thực IPN và sinh Biên lai điện tử (Electronic Receipt) đóng dấu xác nhận hoàn tất.
+  - `apps/api/src/__tests__/test-runner.ts`:
+    - Bổ sung Section 19 với 5 bài kiểm thử tự động chuyên sâu (Tests 46 - 50) nâng tổng số lên **50 tests passing 100%**.
 
 ---
 

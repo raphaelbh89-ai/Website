@@ -32,6 +32,9 @@ importers:
       '@school-cms/cms':
         specifier: workspace:*
         version: link:../../packages/cms
+      '@school-cms/payment':
+        specifier: workspace:*
+        version: link:../../packages/payment
       '@school-cms/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -102,6 +105,9 @@ importers:
       '@school-cms/media':
         specifier: workspace:*
         version: link:../../packages/media
+      '@school-cms/payment':
+        specifier: workspace:*
+        version: link:../../packages/payment
       '@school-cms/seo':
         specifier: workspace:*
         version: link:../../packages/seo
@@ -139,6 +145,9 @@ importers:
       '@school-cms/cms':
         specifier: workspace:*
         version: link:../../packages/cms
+      '@school-cms/payment':
+        specifier: workspace:*
+        version: link:../../packages/payment
       '@school-cms/seo':
         specifier: workspace:*
         version: link:../../packages/seo
@@ -293,6 +302,19 @@ importers:
       '@school-cms/shared':
         specifier: workspace:*
         version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
+  packages/payment:
+    dependencies:
+      '@school-cms/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       typescript:
         specifier: ^5.5.4

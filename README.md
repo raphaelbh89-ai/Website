@@ -23,16 +23,18 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 │   ├── admin/         # Next.js 14 App Router: Admin Dashboard, Visual Page Builder, CRM & Theme Customizer
 │   └── api/           # Fastify 4 Backend: REST API, AI Chatbot RAG, Unified Search, CRM & Audit Logs
 ├── packages/
-│   ├── blocks/        # Thư viện 12 block chuẩn (HeroBanner, ProgramList, PartnerSlider, BranchList, NewsList, FormEmbed, TestimonialSlider, FaqAccordion, Statistics, CtaBanner, Gallery, ContactBox)
-│   ├── cms/           # BlockRegistry singleton, Schema Resolver, Versioning & Migrations
+│   ├── blocks/        # Thư viện 16 block chuẩn (Hero, Program, Partner, Branch, News, Form, Testimonial, FAQ, Stats, CTA, Gallery, Contact, Video, Map, RichText, ImageText)
+│   ├── cms/           # BlockRegistry singleton, Schema Resolver, Versioning, HMAC Preview & Visual Diff
 │   ├── auth/          # Ma trận phân quyền RBAC (13 permissions) & Kiểm tra phạm vi cơ sở (canAccessBranchResource)
 │   ├── database/      # Drizzle ORM Schema PostgreSQL 16 (35 bảng, UUIDv7, Soft Delete) & Seed Data
 │   ├── forms/         # Dynamic Form schema validation & builder core
 │   ├── media/         # Quản lý tệp tin, tối ưu hóa WebP & 4 biến thể ảnh thích ứng (Responsive Image Variants)
-│   ├── seo/           # Tự động sinh JSON-LD Schema.org (School, NewsArticle, Course)
-│   ├── theme/         # Design Tokens generator (:root CSS variables)
+│   ├── payment/       # Cổng thanh toán học phí, VietQR Napas 247, HMAC-SHA512 IPN Checksum & Idempotency
+│   ├── ai-chatbot/    # Trợ lý AI tuyển sinh RAG, phân loại Intent, sổ tay tri thức đa cơ sở & trích dẫn nguồn
+│   ├── seo/           # Tự động sinh JSON-LD Schema.org (School, NewsArticle, Course, FAQPage, Breadcrumb)
+│   ├── theme/         # Design Tokens generator (:root CSS variables) & Scoped Campus Theming
 │   ├── ui/            # UI components dùng chung (Buttons, Containers)
-│   └── shared/        # DTOs, Enums, i18n Dictionary (VI/EN), Interfaces dùng chung toàn monorepo
+│   └── shared/        # DTOs, Enums, i18n Dictionary (VI/EN), Interfaces & Webhooks dùng chung toàn monorepo
 ├── docs/              # 12 tài liệu đặc tả kiến trúc chi tiết (01-12)
 ├── deploy/ci.yml      # CI/CD Pipeline tự động kiểm thử và build monorepo
 └── docker-compose.yml # Hạ tầng production (PostgreSQL 16, Redis 7, API, Web, Admin)
@@ -172,7 +174,23 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
   - Tích hợp thanh cảnh báo bảo mật trên đầu trang và modal 1-chạm copy link trên Admin Dashboard.
 - **So Sánh Trực Quan Lịch Sử Phiên Bản (Revision Visual Diff Engine)**:
   - So sánh đối chiếu trực tiếp giữa 2 phiên bản revision: tự động phát hiện các khối Thêm mới (+Added), Bị xóa (-Removed), Biến đổi cấu hình (ΔModified), và Giữ nguyên (=Unchanged).
-  - Modal Diff Inspector hiển thị trực quan các trường cấu hình JSON được thay đổi kèm 4 thẻ KPI tổng hợp.
+### 16. Cổng Thanh Toán Học Phí & Lệ Phí Tuyển Sinh Trực Tuyến (Online Payment Gateway & VietQR)
+- **Package độc lập `@school-cms/payment`**: Tuân thủ mục 11.4 `docs/11-extensibility.md` và mục 7.4-7.5 `docs/07-security.md`.
+- **Đa cổng thanh toán linh hoạt**: Hỗ trợ **VietQR Napas 247**, **VNPay**, **MoMo QR**, và **Thẻ quốc tế Stripe**.
+- **Chữ ký số mật mã HMAC-SHA512 & IPN Webhook**:
+  - Chuẩn hóa sắp xếp chuỗi tham số theo từ điển (Canonical alphabetical sort) tương thích chuẩn kỹ thuật các ngân hàng Việt Nam.
+  - Tự động sinh và xác thực checksum chữ ký số HMAC-SHA512 qua thuật toán constant-time `timingSafeEqualStrings` chống giả mạo kết quả thanh toán.
+  - Tự động tìm kiếm và cập nhật hồ sơ tuyển sinh tương ứng: chuyển `feePaid = true`, `feeAmount = amount` và đẩy trạng thái sang `HOAN_TAT_HOC_PHI`.
+- **Sinh nội dung chuyển khoản tự động & Chuẩn VietQR**:
+  - Tự động chuẩn hóa nội dung chuyển khoản học phí/lệ phí (`formatTransferContent`: ví dụ `'HS2026_0042_LEPHI'`).
+  - Tích hợp chuẩn ảnh QR Code Napas 247 và deep-link ngân hàng `vietqr://transfer`.
+- **Khóa Idempotency chống trừ tiền trùng lặp (Double-charging prevention)**:
+  - Cơ chế `IdempotencyManager` chặn các thao tác bấm đúp hoặc gửi trùng request thanh toán của người dùng.
+- **Admin Payment Hub & Tra Cứu Giao Dịch**:
+  - Tab quản trị Tài chính với 4 KPI (Tổng doanh thu, Thành công, Đang chờ, Tỷ lệ chốt).
+  - Modal kiểm toán chi tiết giao dịch: Hiển thị VietQR, thanh tra checksum HMAC-SHA512 và nút kế toán phê duyệt thủ công 1-chạm.
+- **Public Checkout Portal (`/tuyen-sinh/thanh-toan/[orderCode]`)**:
+  - Trang thanh toán chuyên nghiệp cho phụ huynh kèm tóm tắt đơn hàng, hướng dẫn chuyển khoản, bộ đếm thời gian và trình giả lập Sandbox sinh biên lai điện tử tức thì.
 
 ---
 
@@ -191,7 +209,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 45/45 tests passing (BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow, AI Knowledge Base Indexing & Multi-category Chunk Validation, Chatbot Intent Classification & Confidence Scoring Precision, RAG Context Grounding & Strict Citation Attribution, AI Chatbot Query REST API & SSE Streaming Contract, Multi-Campus Knowledge Scoping & Global Inheritance, Multi-Campus Hostname Resolution, Scoped Campus Theming & Fallback, HMAC-SHA256 Signed Preview Links, Preview Security & Tamper Proofing, Page Revision Snapshot Deep Diff Comparator).*
+*Kết quả: 50/50 tests passing (BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow, AI Knowledge Base Indexing & Multi-category Chunk Validation, Chatbot Intent Classification & Confidence Scoring Precision, RAG Context Grounding & Strict Citation Attribution, AI Chatbot Query REST API & SSE Streaming Contract, Multi-Campus Knowledge Scoping & Global Inheritance, Multi-Campus Hostname Resolution, Scoped Campus Theming & Fallback, HMAC-SHA256 Signed Preview Links, Preview Security & Tamper Proofing, Page Revision Snapshot Deep Diff Comparator, Payment Transaction Sequential Order Code & Idempotency Key, HMAC-SHA512 Gateway Signature & IPN Checksum Verification, VietQR Napas 247 Payload & Transfer Content Syntax Generator, IPN Webhook Dispatcher & Automated Admission Application Status Progression, Financial Aggregations & Gateway Revenue Metrics).*
 
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu

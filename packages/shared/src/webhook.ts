@@ -4,7 +4,11 @@ export type WebhookEventType =
   | 'page.published'
   | 'system.alert'
   | 'admission.submitted'
-  | 'admission.status_changed';
+  | 'admission.status_changed'
+  | 'admission.enrolled'
+  | 'payment.created'
+  | 'payment.success'
+  | 'payment.manual_confirmed';
 
 export interface WebhookSubscription {
   id: string;

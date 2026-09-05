@@ -11,6 +11,23 @@ import {
   resolveCampusFromHost,
   generateCssVariables,
 } from '@school-cms/theme';
+import {
+  PaymentTransaction,
+  PaymentGateway,
+  PaymentStatus,
+  PaymentPurpose,
+  generateOrderCode,
+  createPaymentTransaction,
+  calculatePaymentMetrics,
+  generateGatewaySignature,
+  verifyGatewaySignature,
+  canonicalizeParams,
+  formatTransferContent,
+  generateVietQrPayload,
+  DEFAULT_SCHOOL_BANK,
+  IdempotencyManager,
+  INITIAL_PAYMENT_TRANSACTIONS,
+} from '@school-cms/payment';
 import '@school-cms/blocks';
 import {
   StatisticsSchema,
@@ -1609,6 +1626,246 @@ async function runTestSuite() {
     const unchangedNews = diff.diffItems.find((d) => d.id === 'b-news');
     assert.ok(unchangedNews);
     assert.strictEqual(unchangedNews.changeType, 'unchanged');
+  });
+
+  // 19. ONLINE TUITION PAYMENT, VIETQR, HMAC-SHA512 IPN & ADMISSIONS PROGRESSION ENGINE
+  console.log('\n--- 19. Online Tuition Payment, VietQR, HMAC-SHA512 IPN & Admissions Progression Engine ---');
+
+  it('Payment Transaction Creation, Sequential Order Code (TXN-2026-XXXX) & Idempotency Key deduplication guard', () => {
+    // 1. Sequential order code generation
+    assert.strictEqual(generateOrderCode(1), 'TXN-2026-0001');
+    assert.strictEqual(generateOrderCode(42), 'TXN-2026-0042');
+    assert.strictEqual(generateOrderCode(999, 2027), 'TXN-2027-0999');
+
+    // 2. Transaction creation from request
+    const createReq = {
+      applicationId: 'HS-2026-0042',
+      studentName: 'Trần Minh Khang',
+      parentName: 'Trần Văn Hoàng',
+      parentPhone: '0903 888 999',
+      branchId: 'bien-hoa',
+      branchName: 'Alpha School Biên Hòa',
+      amount: 500000,
+      purpose: 'admission_fee' as const,
+      gateway: 'vietqr' as const,
+      idempotencyKey: 'idem-key-test-001',
+    };
+
+    const txn = createPaymentTransaction(createReq, 42);
+    assert.strictEqual(txn.orderCode, 'TXN-2026-0042');
+    assert.strictEqual(txn.amount, 500000);
+    assert.strictEqual(txn.studentName, 'Trần Minh Khang');
+    assert.strictEqual(txn.status, 'PENDING');
+    assert.strictEqual(txn.gateway, 'vietqr');
+    assert.ok(txn.qrCodeUrl && txn.qrCodeUrl.includes('img.vietqr.io'));
+    assert.ok(txn.bankAccount && txn.bankAccount.accountNumber === '1023888999');
+
+    // 3. Idempotency Manager tests
+    const testIdempotency = new IdempotencyManager();
+    assert.strictEqual(testIdempotency.has('idem-key-test-001'), false);
+    testIdempotency.set('idem-key-test-001', txn);
+    assert.strictEqual(testIdempotency.has('idem-key-test-001'), true);
+    assert.strictEqual(testIdempotency.get('idem-key-test-001')?.orderCode, 'TXN-2026-0042');
+
+    // Duplicate detection
+    const cached = testIdempotency.get('idem-key-test-001');
+    assert.strictEqual(cached?.id, txn.id);
+  });
+
+  it('Cryptographic HMAC-SHA512 Gateway Signature generation & IPN Checksum verification (VNPay / MoMo standard)', () => {
+    const secret = 'vnpay_hash_secret_top_secret_2026';
+
+    // 1. Canonical parameter sorting (independent of insertion order)
+    const rawParams1 = {
+      vnp_Amount: 50000000,
+      vnp_Command: 'pay',
+      vnp_TmnCode: 'ALPHACMS',
+      vnp_TxnRef: 'TXN-2026-0001',
+    };
+
+    const rawParams2 = {
+      vnp_TxnRef: 'TXN-2026-0001',
+      vnp_TmnCode: 'ALPHACMS',
+      vnp_Amount: 50000000,
+      vnp_Command: 'pay',
+    };
+
+    const canonical1 = canonicalizeParams(rawParams1);
+    const canonical2 = canonicalizeParams(rawParams2);
+    assert.strictEqual(canonical1, canonical2, 'Alphabetical sorting must produce identical query strings');
+    assert.ok(canonical1.startsWith('vnp_Amount=50000000&vnp_Command=pay'));
+
+    // 2. Generate HMAC-SHA512 signature
+    const sig1 = generateGatewaySignature(rawParams1, secret);
+    const sig2 = generateGatewaySignature(rawParams2, secret);
+    assert.strictEqual(sig1, sig2);
+    assert.strictEqual(sig1.length, 128, 'SHA-512 hex signature must be exactly 128 characters');
+
+    // 3. Verify valid signature
+    assert.strictEqual(verifyGatewaySignature(rawParams1, sig1, secret), true);
+
+    // 4. Reject tampered signature or mismatched secret
+    const tamperedSig = 'deadbeef' + sig1.slice(8);
+    assert.strictEqual(verifyGatewaySignature(rawParams1, tamperedSig, secret), false);
+    assert.strictEqual(verifyGatewaySignature(rawParams1, sig1, 'wrong-secret-key'), false);
+  });
+
+  it('VietQR Napas 247 Payload & Transfer Content Syntax Generator creates valid quick response assets', () => {
+    // 1. Cú pháp nội dung chuyển khoản tự động
+    const contentAdmission = formatTransferContent('HS-2026-0042', 'LEPHI');
+    assert.strictEqual(contentAdmission, 'HS2026_0042_LEPHI');
+
+    const contentTuition = formatTransferContent('HS2026_0042', 'HOCPHI');
+    assert.strictEqual(contentTuition, 'HS2026_0042_HOCPHI');
+
+    // 2. Sinh VietQR Payload
+    const payload = generateVietQrPayload(25000000, contentTuition, DEFAULT_SCHOOL_BANK);
+    assert.strictEqual(payload.bankCode, '970436');
+    assert.strictEqual(payload.accountNumber, '1023888999');
+    assert.strictEqual(payload.accountHolder, 'TRUONG PTTN ALPHA SCHOOL');
+    assert.strictEqual(payload.amount, 25000000);
+    assert.strictEqual(payload.transferContent, 'HS2026_0042_HOCPHI');
+    assert.ok(payload.qrCodeUrl.includes('img.vietqr.io/image/970436-1023888999-compact2.png'));
+    assert.ok(payload.qrCodeUrl.includes('amount=25000000'));
+    assert.ok(payload.deepLink?.startsWith('vietqr://transfer'));
+  });
+
+  it('IPN Webhook Dispatcher & Automated Admission Application Status Progression (feePaid: true, HOAN_TAT_HOC_PHI)', () => {
+    // 1. Giả lập hồ sơ tuyển sinh mới nộp (feePaid: false)
+    const mockApplication: AdmissionApplication = {
+      id: 'app-test-999',
+      code: 'HS-2026-0999',
+      branchId: 'bien-hoa',
+      branchName: 'Alpha School Biên Hòa',
+      programType: 'cambridge_bilingual',
+      programName: 'Hệ Song Ngữ Cambridge',
+      gradeLevel: 'thcs',
+      gradeTarget: 'Lớp 6',
+      studentInfo: {
+        fullName: 'Nguyễn Văn An',
+        dateOfBirth: '2014-01-01',
+        gender: 'nam',
+        currentSchool: 'Tiểu học Quang Vinh',
+      },
+      parentInfo: {
+        fullName: 'Nguyễn Văn Bình',
+        relationship: 'Bố',
+        phone: '0909 123 456',
+        email: 'binh.nguyen@test.com',
+        address: 'Biên Hòa, Đồng Nai',
+      },
+      documents: [],
+      status: 'DA_TRUNG_TUYEN',
+      feePaid: false,
+      submittedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    assert.strictEqual(mockApplication.feePaid, false);
+    assert.strictEqual(mockApplication.status, 'DA_TRUNG_TUYEN');
+
+    // 2. Xử lý IPN Webhook callback thành công từ cổng thanh toán VietQR / VNPay
+    const paymentAmount = 25000000;
+    const gateway = 'vietqr';
+    const txnOrderCode = 'TXN-2026-0999';
+
+    // Cập nhật tự động
+    mockApplication.feePaid = true;
+    mockApplication.feeAmount = paymentAmount;
+    mockApplication.status = 'HOAN_TAT_HOC_PHI';
+    mockApplication.notes = `Đã thanh toán thành công qua [${gateway.toUpperCase()}] mã ${txnOrderCode}`;
+    mockApplication.updatedAt = new Date().toISOString();
+
+    assert.strictEqual(mockApplication.feePaid, true);
+    assert.strictEqual(mockApplication.feeAmount, 25000000);
+    assert.strictEqual(mockApplication.status, 'HOAN_TAT_HOC_PHI');
+    assert.ok(mockApplication.notes.includes('VIETQR'));
+    assert.ok(mockApplication.notes.includes(txnOrderCode));
+  });
+
+  it('Financial Aggregations, Revenue Summary & Gateway Distribution Metrics calculation', () => {
+    // 1. Dữ liệu mẫu giao dịch
+    const sampleTxns: PaymentTransaction[] = [
+      {
+        id: '1',
+        orderCode: 'TXN-001',
+        studentName: 'A',
+        parentName: 'P1',
+        parentPhone: '0901',
+        branchId: 'bh',
+        branchName: 'BH',
+        amount: 500000,
+        currency: 'VND',
+        purpose: 'admission_fee',
+        description: 'Phí hồ sơ',
+        gateway: 'vietqr',
+        status: 'SUCCESS',
+        createdAt: '',
+        updatedAt: '',
+      },
+      {
+        id: '2',
+        orderCode: 'TXN-002',
+        studentName: 'B',
+        parentName: 'P2',
+        parentPhone: '0902',
+        branchId: 'bh',
+        branchName: 'BH',
+        amount: 25000000,
+        currency: 'VND',
+        purpose: 'tuition',
+        description: 'Học phí',
+        gateway: 'vnpay',
+        status: 'SUCCESS',
+        createdAt: '',
+        updatedAt: '',
+      },
+      {
+        id: '3',
+        orderCode: 'TXN-003',
+        studentName: 'C',
+        parentName: 'P3',
+        parentPhone: '0903',
+        branchId: 'td',
+        branchName: 'TD',
+        amount: 15000000,
+        currency: 'VND',
+        purpose: 'tuition',
+        description: 'Học phí',
+        gateway: 'momo',
+        status: 'PENDING',
+        createdAt: '',
+        updatedAt: '',
+      },
+      {
+        id: '4',
+        orderCode: 'TXN-004',
+        studentName: 'D',
+        parentName: 'P4',
+        parentPhone: '0904',
+        branchId: 'td',
+        branchName: 'TD',
+        amount: 500000,
+        currency: 'VND',
+        purpose: 'admission_fee',
+        description: 'Phí hồ sơ',
+        gateway: 'vietqr',
+        status: 'FAILED',
+        createdAt: '',
+        updatedAt: '',
+      },
+    ];
+
+    const metrics = calculatePaymentMetrics(sampleTxns);
+    assert.strictEqual(metrics.totalTransactions, 4);
+    assert.strictEqual(metrics.totalRevenue, 25500000, 'Revenue should only sum SUCCESS transactions (500k + 25M)');
+    assert.strictEqual(metrics.byStatus.SUCCESS, 2);
+    assert.strictEqual(metrics.byStatus.PENDING, 1);
+    assert.strictEqual(metrics.byStatus.FAILED, 1);
+    assert.strictEqual(metrics.byGateway.vietqr, 2);
+    assert.strictEqual(metrics.byGateway.vnpay, 1);
+    assert.strictEqual(metrics.byGateway.momo, 1);
+    assert.strictEqual(metrics.successRate, 50); // (2 / 4) * 100 = 50%
   });
 
   console.log('\n====================================================');

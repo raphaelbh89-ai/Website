@@ -32,9 +32,9 @@ async function runTestSuite() {
   // 1. BLOCK REGISTRY & OPEN/CLOSED ARCHITECTURE
   console.log('--- 1. Block Registry & Dynamic Blocks ---');
 
-  it('BlockRegistry should have all 6 core blocks registered', () => {
+  it('BlockRegistry should have all 8 core blocks registered', () => {
     const blocks = BlockRegistry.getAll();
-    assert.strictEqual(blocks.length >= 6, true, 'Must have at least 6 core blocks registered');
+    assert.strictEqual(blocks.length >= 8, true, 'Must have at least 8 core blocks registered');
     
     const types = blocks.map(b => b.type);
     assert.ok(types.includes('hero_banner'), 'Must register hero_banner');
@@ -43,6 +43,8 @@ async function runTestSuite() {
     assert.ok(types.includes('branch_list'), 'Must register branch_list');
     assert.ok(types.includes('news_list'), 'Must register news_list');
     assert.ok(types.includes('form_embed'), 'Must register form_embed');
+    assert.ok(types.includes('testimonial_slider'), 'Must register testimonial_slider');
+    assert.ok(types.includes('faq_accordion'), 'Must register faq_accordion');
   });
 
   it('BlockRegistry should resolve config and apply version migrations', () => {

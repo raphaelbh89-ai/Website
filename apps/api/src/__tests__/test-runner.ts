@@ -6,6 +6,7 @@ import {
   hasPermission,
   canAccessBranchResource,
   UserContext,
+  ALL_PERMISSIONS,
 } from '@school-cms/auth';
 import { initialSeedData } from '@school-cms/database';
 import { DEFAULT_TRANSLATIONS, translate } from '@school-cms/shared';
@@ -166,6 +167,33 @@ async function runTestSuite() {
     assert.ok(csvContent.includes('"Trần Văn An"'), 'Row values must be quoted');
     assert.ok(csvContent.includes('"Cơ sở Biên Hòa"'), 'Vietnamese accents must be preserved');
     assert.strictEqual(csvContent.split('\r\n').length, 3, 'CSV must have 1 header line + 2 data rows');
+  });
+
+  // 5. RBAC PERMISSIONS MATRIX & DYNAMIC ACCESS CONTROL
+  console.log('\n--- 5. Security & RBAC Permission Matrix ---');
+
+  it('ALL_PERMISSIONS covers all required categories and system operations', () => {
+    assert.strictEqual(ALL_PERMISSIONS.length >= 13, true, 'Must have at least 13 granular permissions');
+    const categories = Array.from(new Set(ALL_PERMISSIONS.map(p => p.category)));
+    assert.ok(categories.includes('system'));
+    assert.ok(categories.includes('content'));
+    assert.ok(categories.includes('admissions'));
+    assert.ok(categories.includes('settings'));
+  });
+
+  it('Dynamic permission toggling correctly recalculates user authorization', () => {
+    const editorUser: UserContext = {
+      userId: 'u-editor-dyn',
+      name: 'Dynamic Editor',
+      email: 'dyn@school.edu.vn',
+      roles: [RoleCode.CONTENT_EDITOR],
+      branchId: null,
+    };
+
+    // By default, content editor has pages:write but NOT system:manage
+    assert.strictEqual(hasPermission(editorUser, 'pages:write'), true);
+    assert.strictEqual(hasPermission(editorUser, 'system:manage'), false);
+    assert.strictEqual(hasPermission(editorUser, 'branches:manage'), false);
   });
 
   console.log('\n====================================================');

@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@school-cms/auth": "workspace:*",
     "@school-cms/blocks": "workspace:*",
     "@school-cms/cms": "workspace:*",
     "@school-cms/shared": "workspace:*",

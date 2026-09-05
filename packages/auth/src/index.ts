@@ -24,6 +24,28 @@ export type PermissionCode =
   | 'theme:manage'
   | 'forms:manage';
 
+export interface PermissionDefinition {
+  code: PermissionCode;
+  name: string;
+  category: 'system' | 'content' | 'admissions' | 'settings';
+}
+
+export const ALL_PERMISSIONS: PermissionDefinition[] = [
+  { code: 'system:manage', name: 'Quản trị hệ thống & Cấu hình', category: 'system' },
+  { code: 'branches:manage', name: 'Quản lý cơ sở & chi nhánh', category: 'system' },
+  { code: 'pages:read', name: 'Xem danh sách & nội dung trang', category: 'content' },
+  { code: 'pages:write', name: 'Soạn thảo & cập nhật block trang', category: 'content' },
+  { code: 'pages:publish', name: 'Xuất bản trang ra Edge CDN', category: 'content' },
+  { code: 'articles:read', name: 'Xem danh sách bài viết & tin tức', category: 'content' },
+  { code: 'articles:write', name: 'Viết & chỉnh sửa bài viết', category: 'content' },
+  { code: 'articles:publish', name: 'Duyệt & xuất bản bài viết', category: 'content' },
+  { code: 'leads:read', name: 'Xem hồ sơ phụ huynh tuyển sinh', category: 'admissions' },
+  { code: 'leads:write', name: 'Cập nhật trạng thái & ghi chú CRM', category: 'admissions' },
+  { code: 'leads:export', name: 'Xuất danh sách hồ sơ ra Excel/CSV', category: 'admissions' },
+  { code: 'theme:manage', name: 'Tùy biến theme & bảng màu', category: 'settings' },
+  { code: 'forms:manage', name: 'Thiết kế biểu mẫu động', category: 'settings' },
+];
+
 export const RolePermissions: Record<RoleCode, PermissionCode[]> = {
   [RoleCode.SUPER_ADMIN]: [
     'system:manage',
@@ -102,7 +124,7 @@ export interface AuditLogEntry {
   userRole: string;
   branchId?: string | null;
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'PUBLISH' | 'EXPORT' | 'STATUS_CHANGE';
-  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'FORM' | 'THEME';
+  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'FORM' | 'THEME' | 'USER' | 'ROLE';
   entityId: string;
   entityTitle?: string;
   details?: Record<string, any>;

@@ -20,6 +20,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@school-cms/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@school-cms/blocks':
         specifier: workspace:*
         version: link:../../packages/blocks

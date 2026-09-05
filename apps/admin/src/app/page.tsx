@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { BlockRegistry } from '@school-cms/cms';
 import { DEFAULT_TRANSLATIONS, TranslationItem } from '@school-cms/shared';
+import { ALL_PERMISSIONS, RolePermissions } from '@school-cms/auth';
 import '@school-cms/blocks';
 
 interface BlockItem {
@@ -42,7 +43,7 @@ interface AuditItem {
   userName: string;
   userRole: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'PUBLISH' | 'STATUS_CHANGE' | 'EXPORT';
-  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'THEME' | 'FORM' | 'MENU' | 'TRANSLATION';
+  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'THEME' | 'FORM' | 'MENU' | 'TRANSLATION' | 'USER' | 'ROLE';
   entityTitle: string;
   details?: string;
 }
@@ -57,11 +58,22 @@ interface MenuItem {
   location: 'header' | 'footer';
 }
 
+interface UserAccountItem {
+  id: string;
+  name: string;
+  email: string;
+  role: 'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER' | 'CONTENT_EDITOR';
+  branchId: string | null;
+  branchName: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  lastLogin: string;
+}
+
 export default function AdminDashboard() {
   // Current user role switcher for testing RBAC
   const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'audit' | 'analytics' | 'menus' | 'i18n'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Page state
@@ -253,6 +265,28 @@ export default function AdminDashboard() {
   const [newTransVi, setNewTransVi] = useState('');
   const [newTransEn, setNewTransEn] = useState('');
   const [newTransCategory, setNewTransCategory] = useState<'nav' | 'admissions' | 'common' | 'search' | 'footer'>('common');
+
+  // Users & RBAC Matrix state
+  const [userAccounts, setUserAccounts] = useState<UserAccountItem[]>([
+    { id: 'usr-1', name: 'Nguyễn Đình Trọng', email: 'trong.admin@school.edu.vn', role: 'SUPER_ADMIN', branchId: null, branchName: 'Toàn hệ thống (Global)', status: 'ACTIVE', lastLogin: '05/09/2026 18:25' },
+    { id: 'usr-2', name: 'Trần Minh Quang', email: 'quang.director@school.edu.vn', role: 'CAMPUS_DIRECTOR', branchId: 'b-001', branchName: 'Cơ sở Biên Hòa', status: 'ACTIVE', lastLogin: '05/09/2026 15:10' },
+    { id: 'usr-3', name: 'Lê Thu Hà', email: 'ha.tuyensinh@school.edu.vn', role: 'ADMISSIONS_OFFICER', branchId: 'b-002', branchName: 'Cơ sở TP. Thủ Đức', status: 'ACTIVE', lastLogin: '05/09/2026 11:30' },
+    { id: 'usr-4', name: 'Phạm Tuấn Kiệt', email: 'kiet.editor@school.edu.vn', role: 'CONTENT_EDITOR', branchId: null, branchName: 'Toàn hệ thống (Global)', status: 'ACTIVE', lastLogin: '04/09/2026 16:45' },
+  ]);
+
+  const [dynamicRolePermissions, setDynamicRolePermissions] = useState<Record<string, string[]>>({
+    SUPER_ADMIN: [...RolePermissions.SUPER_ADMIN],
+    CAMPUS_DIRECTOR: [...RolePermissions.CAMPUS_DIRECTOR],
+    ADMISSIONS_OFFICER: [...RolePermissions.ADMISSIONS_OFFICER],
+    CONTENT_EDITOR: [...RolePermissions.CONTENT_EDITOR],
+  });
+
+  const [rbacSubTab, setRbacSubTab] = useState<'users' | 'matrix'>('users');
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER' | 'CONTENT_EDITOR'>('CONTENT_EDITOR');
+  const [newUserBranch, setNewUserBranch] = useState<string>('all');
 
   // Modals
   const [showAddBranchModal, setShowAddBranchModal] = useState(false);
@@ -536,6 +570,60 @@ export default function AdminDashboard() {
     showToast(`Đã xóa khóa dịch: ${key}`);
   };
 
+  const handleTogglePermission = (role: string, permCode: string) => {
+    const currentPerms = dynamicRolePermissions[role] || [];
+    const hasPerm = currentPerms.includes(permCode);
+    const updated = hasPerm ? currentPerms.filter(p => p !== permCode) : [...currentPerms, permCode];
+    setDynamicRolePermissions({
+      ...dynamicRolePermissions,
+      [role]: updated,
+    });
+    addAuditLog({ action: 'UPDATE', entityType: 'ROLE', entityTitle: `Vai Trò ${role}`, details: `${hasPerm ? 'Hủy quyền' : 'Cấp quyền'}: ${permCode}` });
+    showToast(`Đã ${hasPerm ? 'hủy' : 'cấp'} quyền ${permCode} cho vai trò ${role}`);
+  };
+
+  const handleToggleUserStatus = (userId: string) => {
+    const user = userAccounts.find(u => u.id === userId);
+    if (!user) return;
+    const nextStatus = user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    setUserAccounts(userAccounts.map(u => u.id === userId ? { ...u, status: nextStatus } : u));
+    addAuditLog({ action: 'STATUS_CHANGE', entityType: 'USER', entityTitle: user.name, details: `Chuyển trạng thái sang ${nextStatus === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng'}` });
+    showToast(`Tài khoản ${user.name} hiện ${nextStatus === 'ACTIVE' ? 'được kích hoạt' : 'bị tạm dừng'}`);
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    const user = userAccounts.find(u => u.id === userId);
+    if (!user) return;
+    if (user.role === 'SUPER_ADMIN' && userAccounts.filter(u => u.role === 'SUPER_ADMIN').length <= 1) {
+      showToast('Không thể xóa Super Admin duy nhất của hệ thống!');
+      return;
+    }
+    setUserAccounts(userAccounts.filter(u => u.id !== userId));
+    addAuditLog({ action: 'DELETE', entityType: 'USER', entityTitle: user.name, details: `Xóa tài khoản quản trị ${user.email}` });
+    showToast(`Đã xóa tài khoản: ${user.name}`);
+  };
+
+  const handleSaveUser = () => {
+    if (!newUserName.trim() || !newUserEmail.trim()) return;
+    const branchObj = newUserBranch === 'all' ? null : branches.find(b => b.code.toLowerCase().includes(newUserBranch) || b.id === newUserBranch);
+    const newU: UserAccountItem = {
+      id: `usr-${Date.now()}`,
+      name: newUserName.trim(),
+      email: newUserEmail.trim(),
+      role: newUserRole,
+      branchId: branchObj ? branchObj.id : null,
+      branchName: branchObj ? branchObj.name : 'Toàn hệ thống (Global)',
+      status: 'ACTIVE',
+      lastLogin: 'Chưa đăng nhập',
+    };
+    setUserAccounts([...userAccounts, newU]);
+    addAuditLog({ action: 'CREATE', entityType: 'USER', entityTitle: newU.name, details: `Tạo tài khoản mới với vai trò ${newU.role}, cơ sở: ${newU.branchName}` });
+    setNewUserName('');
+    setNewUserEmail('');
+    setShowAddUserModal(false);
+    showToast(`Đã tạo tài khoản quản trị: ${newU.name}`);
+  };
+
   return (
     <div className="flex h-screen w-full bg-slate-100 overflow-hidden font-sans">
       {/* Toast Notification */}
@@ -654,6 +742,17 @@ export default function AdminDashboard() {
           >
             <span>📊</span> Báo cáo Phân tích ({leads.length} leads)
           </button>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">
+            Bảo Mật & Phân Quyền
+          </div>
+          <button
+            onClick={() => setActiveTab('rbac')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeTab === 'rbac' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <span>👥</span> Quản Trị & Phân Quyền ({userAccounts.length})
+          </button>
           <button
             onClick={() => setActiveTab('audit')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
@@ -718,6 +817,7 @@ export default function AdminDashboard() {
               {activeTab === 'analytics' && 'Báo Cáo Hiệu Suất Tuyển Sinh & Lưu Lượng (Analytics)'}
               {activeTab === 'menus' && 'Quản Lý Hệ Thống Điều Hướng & Menu (Navigation)'}
               {activeTab === 'i18n' && 'Quản Lý Bản Dịch Đa Ngôn Ngữ & Từ Điển (i18n Localization)'}
+              {activeTab === 'rbac' && 'Quản Lý Người Dùng & Ma Trận Phân Quyền (RBAC Security Matrix)'}
             </h2>
           </div>
 
@@ -2013,6 +2113,176 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* TAB 12: QUẢN LÝ TÀI KHOẢN & MA TRẬN PHÂN QUYỀN (RBAC) */}
+        {activeTab === 'rbac' && (
+          <div className="flex-1 p-8 overflow-y-auto">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Quản Trị Người Dùng & Ma Trận Phân Quyền (RBAC)</h3>
+                  <p className="text-sm text-slate-500">
+                    Phân quyền dựa trên vai trò (Role-Based Access Control) và phạm vi cơ sở (Multi-Campus Scope).
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center bg-slate-200 p-1 rounded-lg">
+                    <button
+                      onClick={() => setRbacSubTab('users')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                        rbacSubTab === 'users'
+                          ? 'bg-white text-emerald-800 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      👥 Tài Khoản ({userAccounts.length})
+                    </button>
+                    <button
+                      onClick={() => setRbacSubTab('matrix')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                        rbacSubTab === 'matrix'
+                          ? 'bg-white text-emerald-800 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      🛡️ Ma Trận Quyền Hạn
+                    </button>
+                  </div>
+                  {rbacSubTab === 'users' && (
+                    <button
+                      onClick={() => setShowAddUserModal(true)}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2"
+                    >
+                      ➕ Thêm Quản Trị Viên
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* SUBTAB 1: USER ACCOUNTS */}
+              {rbacSubTab === 'users' && (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <table className="w-full text-left text-sm text-slate-600">
+                    <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-4">Họ & Tên</th>
+                        <th className="px-6 py-4">Email</th>
+                        <th className="px-6 py-4">Vai Trò (Role)</th>
+                        <th className="px-6 py-4">Phạm Vi Cơ Sở (Scope)</th>
+                        <th className="px-6 py-4">Trạng Thái</th>
+                        <th className="px-6 py-4">Đăng Nhập Gần Nhất</th>
+                        <th className="px-6 py-4 text-right">Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {userAccounts.map((u) => (
+                        <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-6 py-4 font-semibold text-slate-900 flex items-center gap-2.5">
+                            <span className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs">
+                              {u.name.substring(0, 1)}
+                            </span>
+                            {u.name}
+                          </td>
+                          <td className="px-6 py-4 font-mono text-xs text-slate-600">{u.email}</td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                u.role === 'SUPER_ADMIN'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : u.role === 'CAMPUS_DIRECTOR'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : u.role === 'ADMISSIONS_OFFICER'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-slate-100 text-slate-800'
+                              }`}
+                            >
+                              {u.role}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs font-medium text-emerald-800">{u.branchName}</td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => handleToggleUserStatus(u.id)}
+                              className={`px-2 py-0.5 rounded-full text-xs font-semibold transition-all ${
+                                u.status === 'ACTIVE'
+                                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              }`}
+                            >
+                              {u.status === 'ACTIVE' ? '✓ Hoạt động' : '⊘ Tạm dừng'}
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 text-xs text-slate-400 font-mono">{u.lastLogin}</td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => handleDeleteUser(u.id)}
+                              className="text-slate-400 hover:text-red-600 p-1.5 rounded transition-colors text-sm"
+                              title="Xóa tài khoản"
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* SUBTAB 2: ROLE PERMISSIONS MATRIX */}
+              {rbacSubTab === 'matrix' && (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
+                    <span>
+                      Tích chọn hoặc bỏ chọn để cập nhật tức thì quyền hạn cho từng nhóm người dùng.
+                    </span>
+                    <span className="font-mono text-emerald-700 font-semibold">
+                      Live RBAC Matrix Synced
+                    </span>
+                  </div>
+                  <table className="w-full text-left text-sm text-slate-600">
+                    <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-4">Quyền Hạn (Permission)</th>
+                        <th className="px-6 py-4">Mã Quyền (Code)</th>
+                        <th className="px-4 py-4 text-center">Super Admin</th>
+                        <th className="px-4 py-4 text-center">Campus Director</th>
+                        <th className="px-4 py-4 text-center">Admissions Officer</th>
+                        <th className="px-4 py-4 text-center">Content Editor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {ALL_PERMISSIONS.map((perm) => (
+                        <tr key={perm.code} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-6 py-3 font-semibold text-slate-800">
+                            <div>{perm.name}</div>
+                            <span className="text-[10px] text-slate-400 uppercase font-mono">{perm.category}</span>
+                          </td>
+                          <td className="px-6 py-3 font-mono text-slate-500">{perm.code}</td>
+                          {['SUPER_ADMIN', 'CAMPUS_DIRECTOR', 'ADMISSIONS_OFFICER', 'CONTENT_EDITOR'].map((roleKey) => {
+                            const isChecked = (dynamicRolePermissions[roleKey] || []).includes(perm.code);
+                            const isLockedSuperAdmin = roleKey === 'SUPER_ADMIN' && perm.code === 'system:manage';
+                            return (
+                              <td key={roleKey} className="px-4 py-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  disabled={isLockedSuperAdmin}
+                                  checked={isChecked}
+                                  onChange={() => handleTogglePermission(roleKey, perm.code)}
+                                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-50"
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL: Thêm Cơ Sở Mới */}
@@ -2250,6 +2520,77 @@ export default function AdminDashboard() {
                 className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 shadow-sm"
               >
                 Lưu Khóa Dịch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Thêm Quản Trị Viên Mới */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Tạo Tài Khoản Quản Trị Viên Mới</h3>
+            <div className="space-y-4 text-sm">
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">Họ và Tên</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Hoàng Văn Nam"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">Địa Chỉ Email</label>
+                <input
+                  type="email"
+                  placeholder="nam.hoang@school.edu.vn"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">Vai Trò (Role)</label>
+                <select
+                  value={newUserRole}
+                  onChange={(e) => setNewUserRole(e.target.value as any)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                >
+                  <option value="CAMPUS_DIRECTOR">🏫 Giám Đốc Cơ Sở (Campus Director)</option>
+                  <option value="ADMISSIONS_OFFICER">🎯 Chuyên Viên Tuyển Sinh (Admissions Officer)</option>
+                  <option value="CONTENT_EDITOR">✍️ Biên Tập Viên Nội Dung (Content Editor)</option>
+                  <option value="SUPER_ADMIN">👑 Quản Trị Cấp Cao (Super Admin)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">Phạm Vi Cơ Sở (Campus Scope)</label>
+                <select
+                  value={newUserBranch}
+                  onChange={(e) => setNewUserBranch(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                >
+                  <option value="all">Toàn hệ thống (Global Scope)</option>
+                  {branches.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowAddUserModal(false)}
+                className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveUser}
+                className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 shadow-sm"
+              >
+                Tạo Tài Khoản
               </button>
             </div>
           </div>

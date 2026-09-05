@@ -11,8 +11,12 @@ import { StatisticsBlockDefinition } from './statistics';
 import { CtaBannerBlockDefinition } from './cta_banner';
 import { GalleryBlockDefinition } from './gallery';
 import { ContactBoxBlockDefinition } from './contact_box';
+import { VideoPlayerBlockDefinition } from './video_player';
+import { GoogleMapBlockDefinition } from './google_map';
+import { RichTextBlockDefinition } from './rich_text';
+import { ImageTextBlockDefinition } from './image_text';
 
-// Tự động đăng ký 12 Block chuẩn vào BlockRegistry theo Open/Closed Principle
+// Tự động đăng ký toàn bộ 16 Block chuẩn vào BlockRegistry theo Open/Closed Principle
 BlockRegistry.register(HeroBannerBlockDefinition);
 BlockRegistry.register(ProgramListBlockDefinition);
 BlockRegistry.register(PartnerSliderBlockDefinition);
@@ -25,6 +29,10 @@ BlockRegistry.register(StatisticsBlockDefinition);
 BlockRegistry.register(CtaBannerBlockDefinition);
 BlockRegistry.register(GalleryBlockDefinition);
 BlockRegistry.register(ContactBoxBlockDefinition);
+BlockRegistry.register(VideoPlayerBlockDefinition);
+BlockRegistry.register(GoogleMapBlockDefinition);
+BlockRegistry.register(RichTextBlockDefinition);
+BlockRegistry.register(ImageTextBlockDefinition);
 
 export * from './hero_banner';
 export * from './program_list';
@@ -38,3 +46,7 @@ export * from './statistics';
 export * from './cta_banner';
 export * from './gallery';
 export * from './contact_box';
+export * from './video_player';
+export * from './google_map';
+export * from './rich_text';
+export * from './image_text';

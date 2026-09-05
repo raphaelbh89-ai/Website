@@ -10,7 +10,15 @@ import {
   ContentStatus,
   DEFAULT_TRANSLATIONS,
   TranslationItem,
+  AdmissionApplication,
+  AdmissionStatus,
+  calculateAdmissionMetrics,
+  generateApplicationCode,
 } from '@school-cms/shared';
+import {
+  validateCompleteAdmission,
+  createAdmissionApplication,
+} from '@school-cms/forms';
 import {
   AuditLogEntry,
   hasPermission,
@@ -273,6 +281,9 @@ let submissionsStore: LeadSubmission[] = [
     status: 'CONVERTED',
     notes: [{ text: 'Học sinh đã đạt bài test, phụ huynh đã đóng phí ghi danh.', author: 'Ban Giám Hiệu', createdAt: '2026-09-03T09:00:00.000Z' }],
     createdAt: '2026-09-02T15:20:00.000Z',
+  },
+];
+
 let mediaStore: MediaAsset[] = [
   {
     id: 'med-001',
@@ -1787,7 +1798,7 @@ server.post('/api/v1/webhooks/test-trigger', async (req) => {
 
   const results = dispatchWebhookEvent(event, payload);
   return formatSuccessResponse({
-    dispatchedCount: results.length,
+    dispatchedCount: results.deliveriesDispatched,
     event,
     results,
   });
@@ -2019,7 +2030,306 @@ server.post('/api/v1/cache/purge', async (req) => {
 });
 
 // -------------------------------------------------------------
-// 13. SYSTEM HEALTH CHECK API
+// 13. ONLINE ADMISSIONS APPLICATIONS API
+// -------------------------------------------------------------
+
+let admissionsStore: AdmissionApplication[] = [
+  {
+    id: 'app-001',
+    code: 'HS-2026-0001',
+    branchId: 'b-001',
+    branchName: 'Alpha School - Cơ sở Biên Hòa',
+    programType: 'cambridge_bilingual',
+    programName: 'Hệ Song Ngữ Cambridge Quốc Tế',
+    gradeLevel: 'thcs',
+    gradeTarget: 'Lớp 6',
+    studentInfo: {
+      fullName: 'Trần Gia Bảo',
+      dateOfBirth: '2014-05-12',
+      gender: 'nam',
+      currentSchool: 'Tiểu học Trảng Dài',
+    },
+    parentInfo: {
+      fullName: 'Trần Quốc Tuấn',
+      relationship: 'Bố',
+      phone: '0912 345 678',
+      email: 'quoctuan.tran@gmail.com',
+      address: 'Phường Tân Hiệp, TP. Biên Hòa, Đồng Nai',
+    },
+    documents: [
+      { id: 'doc-1', name: 'Giấy khai sinh photo công chứng', type: 'birth_certificate', url: 'https://school.edu.vn/docs/ks-001.pdf', verified: true },
+      { id: 'doc-2', name: 'Học bạ tiểu học 5 năm', type: 'transcript', url: 'https://school.edu.vn/docs/hb-001.pdf', verified: true },
+    ],
+    status: 'HEN_PHONG_VAN',
+    interviewDate: '2026-09-15 09:00',
+    interviewNotes: 'Đánh giá năng lực tư duy toán & Tiếng Anh Cambridge',
+    feePaid: false,
+    notes: 'Học sinh có chứng chỉ Cambridge Flyers 14 khiên',
+    submittedAt: '2026-09-01T08:30:00.000Z',
+    updatedAt: '2026-09-02T10:15:00.000Z',
+  },
+  {
+    id: 'app-002',
+    code: 'HS-2026-0002',
+    branchId: 'b-002',
+    branchName: 'Alpha School - Cơ sở TP. Thủ Đức',
+    programType: 'high_quality',
+    programName: 'Hệ Chất Lượng Cao Tăng Cường',
+    gradeLevel: 'tieu_hoc',
+    gradeTarget: 'Lớp 1',
+    studentInfo: {
+      fullName: 'Nguyễn Ngọc Diệp',
+      dateOfBirth: '2020-08-20',
+      gender: 'nu',
+      currentSchool: 'Mầm non Tuổi Thơ',
+    },
+    parentInfo: {
+      fullName: 'Nguyễn Thanh Hà',
+      relationship: 'Mẹ',
+      phone: '0988 765 432',
+      email: 'thanhha.nguyen@yahoo.com',
+      address: 'Thảo Điền, TP. Thủ Đức, TP.HCM',
+    },
+    documents: [
+      { id: 'doc-3', name: 'Giấy khai sinh bản sao', type: 'birth_certificate', url: 'https://school.edu.vn/docs/ks-002.pdf', verified: true },
+      { id: 'doc-4', name: 'Hồ sơ sức khỏe trường mầm non', type: 'health_record', url: 'https://school.edu.vn/docs/sk-002.pdf', verified: true },
+    ],
+    status: 'DA_TRUNG_TUYEN',
+    interviewDate: '2026-09-03 14:00',
+    interviewNotes: 'Đạt 95/100 điểm trắc nghiệm tâm lý & nhận thức lứa tuổi',
+    feePaid: true,
+    feeAmount: 15000000,
+    notes: 'Đã hoàn tất đóng phí giữ chỗ nhập học',
+    submittedAt: '2026-08-28T09:00:00.000Z',
+    updatedAt: '2026-09-04T11:00:00.000Z',
+  },
+  {
+    id: 'app-003',
+    code: 'HS-2026-0003',
+    branchId: 'b-001',
+    branchName: 'Alpha School - Cơ sở Biên Hòa',
+    programType: 'stem_integrated',
+    programName: 'Hệ Tích Hợp STEM & Công Nghệ',
+    gradeLevel: 'thpt',
+    gradeTarget: 'Lớp 10',
+    studentInfo: {
+      fullName: 'Lê Hoàng Nam',
+      dateOfBirth: '2011-03-15',
+      gender: 'nam',
+      currentSchool: 'THCS Thống Nhất',
+    },
+    parentInfo: {
+      fullName: 'Lê Văn Khang',
+      relationship: 'Bố',
+      phone: '0903 111 222',
+      email: 'vankhang.le@gmail.com',
+      address: 'Phường Quyết Thắng, TP. Biên Hòa, Đồng Nai',
+    },
+    documents: [
+      { id: 'doc-5', name: 'Giấy khai sinh photo', type: 'birth_certificate', url: 'https://school.edu.vn/docs/ks-003.pdf', verified: false },
+      { id: 'doc-6', name: 'Học bạ THCS 4 năm', type: 'transcript', url: 'https://school.edu.vn/docs/hb-003.pdf', verified: false },
+    ],
+    status: 'HO_SO_MOI',
+    feePaid: false,
+    notes: 'Có giải Ba môn Tin học cấp Thành phố năm 2025',
+    submittedAt: '2026-09-05T07:45:00.000Z',
+    updatedAt: '2026-09-05T07:45:00.000Z',
+  },
+  {
+    id: 'app-004',
+    code: 'HS-2026-0004',
+    branchId: 'b-002',
+    branchName: 'Alpha School - Cơ sở TP. Thủ Đức',
+    programType: 'cambridge_bilingual',
+    programName: 'Hệ Song Ngữ Cambridge Quốc Tế',
+    gradeLevel: 'mam_non',
+    gradeTarget: 'Lớp Mẫu Giáo Lớn (5 tuổi)',
+    studentInfo: {
+      fullName: 'Đặng Minh Anh',
+      dateOfBirth: '2021-11-05',
+      gender: 'nu',
+      currentSchool: 'Mầm non Song Ngữ Ánh Dương',
+    },
+    parentInfo: {
+      fullName: 'Đặng Hoàng Quân',
+      relationship: 'Bố',
+      phone: '0933 999 888',
+      email: 'quan.dang@gmail.com',
+      address: 'Phường An Phú, TP. Thủ Đức, TP.HCM',
+    },
+    documents: [
+      { id: 'doc-7', name: 'Giấy khai sinh bản sao', type: 'birth_certificate', url: 'https://school.edu.vn/docs/ks-004.pdf', verified: true },
+    ],
+    status: 'HOAN_TAT_HOC_PHI',
+    interviewDate: '2026-08-25 10:00',
+    interviewNotes: 'Hoàn thành xuất sắc bài test phản xạ song ngữ Anh - Việt',
+    feePaid: true,
+    feeAmount: 25000000,
+    notes: 'Đã nhận đồng phục và tài liệu nhập học năm học mới',
+    submittedAt: '2026-08-20T14:10:00.000Z',
+    updatedAt: '2026-08-29T16:20:00.000Z',
+  },
+];
+
+// 13.1 Danh sách hồ sơ tuyển sinh (hỗ trợ lọc theo cơ sở, khối học, trạng thái, tìm kiếm)
+server.get('/api/v1/admissions/applications', async (req) => {
+  const { branchId, gradeLevel, status, search } = req.query as {
+    branchId?: string;
+    gradeLevel?: string;
+    status?: string;
+    search?: string;
+  };
+
+  let results = [...admissionsStore];
+
+  if (branchId) {
+    results = results.filter((app) => app.branchId === branchId);
+  }
+  if (gradeLevel) {
+    results = results.filter((app) => app.gradeLevel === gradeLevel);
+  }
+  if (status) {
+    results = results.filter((app) => app.status === status);
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    results = results.filter(
+      (app) =>
+        app.code.toLowerCase().includes(q) ||
+        app.studentInfo.fullName.toLowerCase().includes(q) ||
+        app.parentInfo.fullName.toLowerCase().includes(q) ||
+        app.parentInfo.phone.includes(q) ||
+        app.parentInfo.email.toLowerCase().includes(q)
+    );
+  }
+
+  return formatSuccessResponse(results, {
+    total: results.length,
+    metrics: calculateAdmissionMetrics(results),
+  });
+});
+
+// 13.2 Chi tiết một hồ sơ tuyển sinh
+server.get('/api/v1/admissions/applications/:id', async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const app = admissionsStore.find((a) => a.id === id || a.code === id);
+  if (!app) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy hồ sơ tuyển sinh' },
+    });
+  }
+  return formatSuccessResponse(app);
+});
+
+// 13.3 Nộp hồ sơ tuyển sinh trực tuyến (Wizard Submission)
+server.post('/api/v1/admissions/apply', async (req, reply) => {
+  const validation = validateCompleteAdmission(req.body);
+  if (!validation.success) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Dữ liệu hồ sơ tuyển sinh không hợp lệ',
+        details: validation.error.format(),
+      },
+    });
+  }
+
+  const nextSeq = admissionsStore.length + 1;
+  const newApp = createAdmissionApplication(validation.data, nextSeq);
+  admissionsStore.unshift(newApp);
+
+  // Invalidate cache
+  globalCacheManager.revalidateTag('admission:stats');
+
+  // Gửi webhook thông báo hồ sơ tuyển sinh mới
+  await dispatchWebhookEvent('admission.submitted', {
+    applicationId: newApp.id,
+    code: newApp.code,
+    studentName: newApp.studentInfo.fullName,
+    parentName: newApp.parentInfo.fullName,
+    parentPhone: newApp.parentInfo.phone,
+    branchId: newApp.branchId,
+    branchName: newApp.branchName,
+    gradeTarget: newApp.gradeTarget,
+    status: newApp.status,
+    submittedAt: newApp.submittedAt,
+  });
+
+  return reply.status(201).send(formatSuccessResponse(newApp));
+});
+
+// 13.4 Cập nhật trạng thái duyệt và thông tin lịch hẹn / học phí
+server.patch('/api/v1/admissions/applications/:id/status', async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const body = req.body as {
+    status: AdmissionStatus;
+    interviewDate?: string;
+    interviewNotes?: string;
+    feePaid?: boolean;
+    feeAmount?: number;
+    notes?: string;
+  };
+
+  const appIndex = admissionsStore.findIndex((a) => a.id === id || a.code === id);
+  if (appIndex === -1) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy hồ sơ tuyển sinh cần cập nhật' },
+    });
+  }
+
+  const oldApp = admissionsStore[appIndex];
+  const updatedApp: AdmissionApplication = {
+    ...oldApp,
+    status: body.status || oldApp.status,
+    interviewDate: body.interviewDate !== undefined ? body.interviewDate : oldApp.interviewDate,
+    interviewNotes: body.interviewNotes !== undefined ? body.interviewNotes : oldApp.interviewNotes,
+    feePaid: body.feePaid !== undefined ? body.feePaid : oldApp.feePaid,
+    feeAmount: body.feeAmount !== undefined ? body.feeAmount : oldApp.feeAmount,
+    notes: body.notes !== undefined ? body.notes : oldApp.notes,
+    updatedAt: new Date().toISOString(),
+  };
+
+  admissionsStore[appIndex] = updatedApp;
+  globalCacheManager.revalidateTag('admission:stats');
+
+  // Gửi webhook thông báo thay đổi trạng thái
+  await dispatchWebhookEvent('admission.status_changed', {
+    applicationId: updatedApp.id,
+    code: updatedApp.code,
+    studentName: updatedApp.studentInfo.fullName,
+    oldStatus: oldApp.status,
+    newStatus: updatedApp.status,
+    interviewDate: updatedApp.interviewDate,
+    feePaid: updatedApp.feePaid,
+    updatedAt: updatedApp.updatedAt,
+  });
+
+  return formatSuccessResponse(updatedApp);
+});
+
+// 13.5 Báo cáo thống kê chuyển đổi tuyển sinh
+server.get('/api/v1/admissions/stats', async (req) => {
+  const { branchId } = req.query as { branchId?: string };
+  const list = branchId
+    ? admissionsStore.filter((a) => a.branchId === branchId)
+    : admissionsStore;
+
+  const metrics = calculateAdmissionMetrics(list);
+  return formatSuccessResponse({
+    metrics,
+    branchId: branchId || 'all',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// -------------------------------------------------------------
+// 14. SYSTEM HEALTH CHECK API
 // -------------------------------------------------------------
 server.get('/api/v1/health', async () => {
   const cacheStats = globalCacheManager.getStats();
@@ -2037,6 +2347,7 @@ server.get('/api/v1/health', async () => {
       cachedKeys: cacheStats.totalKeys,
       mediaCount: mediaStore.length,
       webhooksCount: getWebhooks().length,
+      admissionsCount: admissionsStore.length,
     },
   });
 });

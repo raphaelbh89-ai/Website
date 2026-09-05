@@ -157,7 +157,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/web/src/app/page.tsx`: Nhúng và hiển thị hoàn chỉnh 10 blocks trên trang chủ công cộng.
   - `apps/api/src/__tests__/test-runner.ts`: Mở rộng bộ kiểm thử tự động lên **26 tests** passing 100%.
 
-### Phase 18: Thư Viện 12 Blocks Chuẩn, On-Demand Cache Invalidation, Multi-Tier Performance Dashboard & 30 Tests
+### Phase 18: Thư Viện 12 Blocks Chuẩn, On-Demand Cache Invalidation, Multi-Tier Performance Dashboard & 30 Tests (Commit: 7004ebb)
 - **Tệp tin**:
   - `packages/blocks/src/gallery/`: Khối Thư viện ảnh tương tác (`gallery`) hỗ trợ phân loại category, lightbox modal phóng to ảnh, responsive grid.
   - `packages/blocks/src/contact_box/`: Khối Thông tin liên hệ đa cơ sở (`contact_box`) tích hợp hotline trung tâm, thẻ cơ sở, giờ làm việc và liên kết bản đồ.
@@ -168,12 +168,26 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/web/src/app/page.tsx`: Trưng bày trọn vẹn cả 12 khối giao diện cốt lõi trên trang chủ công cộng.
   - `apps/api/src/__tests__/test-runner.ts`: Mở rộng bộ kiểm thử tự động lên **30 tests** passing 100%.
 
+### Phase 19: Hoàn Thiện 16/16 Khối Giao Diện Chuẩn, Tuyển Sinh Trực Tuyến Đa Bước & 35 Tests
+- **Tệp tin**:
+  - `packages/blocks/src/video_player/`: Khối Trình chiếu Video (`video_player`) hỗ trợ YouTube / Vimeo / MP4, tỉ lệ 16:9, xem trước poster và modal phát video tương tác kèm phân đoạn chapters.
+  - `packages/blocks/src/google_map/`: Khối Bản đồ Google Map (`google_map`) hỗ trợ chuyển đổi cơ sở (Hà Nội, TP.HCM, Biên Hòa), hiển thị thẻ địa chỉ, hotline, giờ làm việc và nút mở chỉ đường Google Maps.
+  - `packages/blocks/src/rich_text/`: Khối Văn bản định dạng (`rich_text`) hỗ trợ typography chuẩn học thuật, trích dẫn blockquote, danh sách kiểu dáng và hộp thông báo callout.
+  - `packages/blocks/src/image_text/`: Khối Bố cục Split 2 cột (`image_text`) hỗ trợ đảo chiều ảnh trái/phải, huy hiệu số liệu nổi bật, danh sách ưu điểm và nút CTA.
+  - `packages/blocks/src/index.ts`: Đăng ký toàn bộ 16 khối giao diện vào `BlockRegistry` (đạt 100% catalog quy định tại `docs/04-module-block-system.md` mục 4.2).
+  - `packages/shared/src/admission.ts`: Định nghĩa mô hình hồ sơ tuyển sinh điện tử 4 bước, vòng đời duyệt trạng thái (`HO_SO_MOI` ➔ `HEN_PHONG_VAN` ➔ `DA_TRUNG_TUYEN` ➔ `HOAN_TAT_HOC_PHI`), sinh mã hồ sơ `HS-2026-XXXX` và tính toán KPI metrics.
+  - `packages/forms/src/admission-wizard.ts`: Trình kiểm định hợp lệ Zod cho 4 bước tuyển sinh trực tuyến (Thông tin học sinh, phụ huynh, tài liệu đính kèm, nguyện vọng cơ sở/chương trình).
+  - `apps/api/src/index.ts`: Bộ REST API Tuyển sinh trực tuyến (`/api/v1/admissions/applications`, `/api/v1/admissions/apply`, `/api/v1/admissions/applications/:id/status`, `/api/v1/admissions/stats`) và cập nhật `/api/v1/health`.
+  - `apps/admin/src/app/page.tsx`: Tab quản trị **Tuyển Sinh Trực Tuyến** hiển thị 4 KPI conversion, thanh công cụ tìm kiếm lọc theo cơ sở/khối/trạng thái, bảng hồ sơ điện tử, dropdown chuyển trạng thái nhanh và modal thẩm định hồ sơ chi tiết.
+  - `apps/web/src/app/page.tsx`: Trưng bày đầy đủ 16 khối chuẩn tuần tự từ 1 đến 16 trên cổng thông tin công cộng.
+  - `apps/api/src/__tests__/test-runner.ts`: Mở rộng bộ kiểm thử tự động lên **35 tests** passing 100%.
+
 ---
 
 
 
 ## 📌 Các File Nơi Lưu Lại Toàn Bộ Tiến Trình
-1. **Mã nguồn Git trên GitHub**: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git) (nhánh `main`) - Lưu vết đầy đủ 18 commits lịch sử.
-2. **File tài liệu lộ trình**: [docs/13-implementation-roadmap-history.md](file:///c:/Users/Dathu/OneDrive/Documents/Website/docs/13-implementation-roadmap-history.md) (tệp vừa tạo này).
+1. **Mã nguồn Git trên GitHub**: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git) (nhánh `main`) - Lưu vết đầy đủ 19 commits lịch sử.
+2. **File tài liệu lộ trình**: [docs/13-implementation-roadmap-history.md](file:///c:/Users/Dathu/OneDrive/Documents/Website/docs/13-implementation-roadmap-history.md).
 3. **File giới thiệu & hướng dẫn chính**: [README.md](file:///c:/Users/Dathu/OneDrive/Documents/Website/README.md) (ghi nhận đầy đủ tính năng qua các phase và kết quả kiểm thử).
-4. **File nhật ký kiểm thử & xác thực**: [walkthrough.md](file:///C:/Users/Dathu/.gemini/antigravity-ide/brain/6ab411a5-46a6-4e1c-93ad-7b33549f43db/walkthrough.md).
+4. **File nhật ký kiểm thử & xác thực**: [walkthrough.md](file:///C:/Users/Dathu/.gemini/antigravity-ide/brain/7e8a3993-9ef7-45f8-8504-5c9fd9cbb747/walkthrough.md).

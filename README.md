@@ -49,7 +49,7 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 - **Rollback 1-chạm (One-Click Rollback)**: Cho phép xem lại chi tiết và khôi phục layout về bất kỳ phiên bản nào trong quá khứ.
 - **Sao lưu cấu hình toàn diện (Site Backup Export)**: Xuất gói cấu hình chuẩn JSON (Blocks layout, theme tokens, menu điều hướng, từ điển i18n).
 
-### 2. Thư Viện 12 Khối Giao Diện Cốt Lõi (Open/Closed Architecture)
+### 2. Thư Viện 16 Khối Giao Diện Chuẩn (100% Catalog Completion)
 1. `hero_banner`: Banner lớn, ảnh nền, overlay opacity, slogan và nút kêu gọi hành động (CTA).
 2. `program_list`: Danh sách chương trình đào tạo chuẩn quốc tế (Mầm non, Tiểu học, Trung học & Tú tài).
 3. `partner_slider`: Băng chuyền đối tác học thuật quốc tế (Cambridge, IB, CIS, Edexcel).
@@ -62,6 +62,16 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 10. `cta_banner`: Banner kêu gọi hành động tuyển sinh cao cấp (Hotline nóng, đăng ký tham quan, tải cẩm nang, nền gradient & overlay).
 11. `gallery`: Thư viện ảnh tương tác học sinh (Phân loại categories, responsive grid, lightbox phóng to toàn màn hình kèm caption).
 12. `contact_box`: Khối thông tin liên hệ đa cơ sở (Địa chỉ thực tế, giờ làm việc, hotline tư vấn, email tiếp nhận, Google Maps embed).
+13. `video_player`: Trình chiếu Video điện ảnh (YouTube / Vimeo / MP4), xem trước poster, nhãn thời lượng, lightbox phát video và chapters.
+14. `google_map`: Bản đồ định vị cơ sở trực quan (Chuyển đổi phân hiệu Hà Nội/TP.HCM/Biên Hòa, thẻ thông tin địa chỉ, sao chép 1-chạm và chỉ đường).
+15. `rich_text`: Trình soạn thảo văn bản học thuật (Headings, lead paragraphs, trích dẫn danh nhân, danh sách và alert callouts).
+16. `image_text`: Khối bố cục Split 2 cột (Ảnh cơ sở vật chất & bài giới thiệu, đảo chiều trái/phải, huy hiệu số liệu và nút CTA).
+
+### 2.1 Hệ Thống Tuyển Sinh Trực Tuyến Đa Bước (Online Admission Wizard)
+- **Quy trình nộp hồ sơ 4 bước**: (1) Thông tin thí sinh -> (2) Thông tin phụ huynh -> (3) Tài liệu đính kèm (Khai sinh, học bạ) -> (4) Nguyện vọng cơ sở & Khối lớp.
+- **Vòng đời 4 trạng thái duyệt**: `Hồ Sơ Mới Nộp` ➔ `Hẹn Phỏng Vấn / ĐGNL` ➔ `Đã Trúng Tuyển` ➔ `Đã Nhập Học (Hoàn Tất)`.
+- **Tự động sinh mã hồ sơ**: Định dạng chuẩn `HS-2026-XXXX`.
+- **Thẩm định hồ sơ số**: Kiểm tra tính hợp lệ của tài liệu đính kèm, đặt lịch phỏng vấn và ghi nhận học phí đã thu.
 
 ### 3. Phân Quyền Đa Cơ Sở & Ma Trận Quyền Lực (RBAC Security Matrix)
 - **4 Vai trò cốt lõi**: `SUPER_ADMIN`, `CAMPUS_DIRECTOR`, `ADMISSIONS_OFFICER`, `CONTENT_EDITOR`.
@@ -142,7 +152,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 30/30 tests passing (BlockRegistry 12 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, All 12 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Extended 12 Blocks Library Schema, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle).*
+*Kết quả: 35/35 tests passing (BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow).*
 
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu

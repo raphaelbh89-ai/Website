@@ -2,8 +2,12 @@ import React from 'react';
 import { Page, ContentStatus } from '@school-cms/shared';
 import { buildSchoolJsonLd, buildFaqJsonLd } from '@school-cms/seo';
 import { DynamicPageRenderer } from '../components/DynamicPageRenderer';
+import { defaultRichTextConfig } from '@school-cms/blocks';
+import { defaultImageTextConfig } from '@school-cms/blocks';
+import { defaultVideoPlayerConfig } from '@school-cms/blocks';
+import { defaultGoogleMapConfig } from '@school-cms/blocks';
 
-// Trang chủ được nạp dữ liệu từ CMS / Page JSON
+// Trang chủ được nạp dữ liệu từ CMS / Page JSON với đầy đủ 16 khối chuẩn
 const mockHomePageData: Page = {
   id: 'page-home',
   title: 'Trang Chủ Alpha School',
@@ -33,7 +37,7 @@ const mockHomePageData: Page = {
           config: {
             title: 'Khát Vọng Vươn Tầm Cùng Alpha School',
             subtitle: 'Môi trường giáo dục song ngữ toàn diện - Nuôi dưỡng tài năng lãnh đạo tương lai',
-            primaryButtonText: 'Đăng ký nhận học bổng 2025',
+            primaryButtonText: 'Đăng ký nhận học bổng 2026',
             primaryButtonUrl: '/tuyen-sinh',
             secondaryButtonText: 'Tìm hiểu hệ thống cơ sở',
             secondaryButtonUrl: '/co-so/bien-hoa',
@@ -156,10 +160,50 @@ const mockHomePageData: Page = {
       ],
     },
     {
+      id: 'sec-rich-text',
+      pageId: 'page-home',
+      name: 'Triết lý giáo dục & Cam kết',
+      sortOrder: 4,
+      isVisible: true,
+      settings: {
+        layout: { width: 'container' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-rich-text',
+          type: 'rich_text',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: defaultRichTextConfig,
+        },
+      ],
+    },
+    {
+      id: 'sec-image-text',
+      pageId: 'page-home',
+      name: 'Không gian học tập truyền cảm hứng',
+      sortOrder: 5,
+      isVisible: true,
+      settings: {
+        layout: { width: 'container' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-image-text',
+          type: 'image_text',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: defaultImageTextConfig,
+        },
+      ],
+    },
+    {
       id: 'sec-branches',
       pageId: 'page-home',
       name: 'Hệ thống cơ sở',
-      sortOrder: 4,
+      sortOrder: 6,
       isVisible: true,
       settings: {
         layout: { width: 'container' as any },
@@ -205,53 +249,10 @@ const mockHomePageData: Page = {
       ],
     },
     {
-      id: 'sec-partners',
-      pageId: 'page-home',
-      name: 'Đối tác',
-      sortOrder: 5,
-      isVisible: true,
-      settings: {
-        layout: { width: 'full_width' as any },
-      },
-      blocks: [
-        {
-          id: 'blk-partners',
-          type: 'partner_slider',
-          version: 1,
-          sortOrder: 1,
-          isActive: true,
-          config: {
-            title: 'Đối Tác Khảo Thí & Kiểm Định Quốc Tế',
-            subtitle: 'Đồng hành xây dựng chuẩn mực đào tạo toàn cầu',
-            partners: [
-              {
-                id: 'pt1',
-                name: 'Cambridge Assessment',
-                logoUrl: 'https://placehold.co/180x60/f8fafc/047857?text=Cambridge',
-                websiteUrl: 'https://cambridge.org',
-              },
-              {
-                id: 'pt2',
-                name: 'International Baccalaureate',
-                logoUrl: 'https://placehold.co/180x60/f8fafc/047857?text=IB+World',
-                websiteUrl: 'https://ibo.org',
-              },
-              {
-                id: 'pt3',
-                name: 'Cognia Accreditation',
-                logoUrl: 'https://placehold.co/180x60/f8fafc/047857?text=Cognia',
-                websiteUrl: 'https://cognia.org',
-              },
-            ],
-          },
-        },
-      ],
-    },
-    {
       id: 'sec-news',
       pageId: 'page-home',
-      name: 'Tin tức & Hoạt động',
-      sortOrder: 6,
+      name: 'Tin tức & Sự kiện',
+      sortOrder: 7,
       isVisible: true,
       settings: {
         layout: { width: 'container' as any },
@@ -264,36 +265,36 @@ const mockHomePageData: Page = {
           sortOrder: 1,
           isActive: true,
           config: {
-            title: 'Tin Tức & Hoạt Động Nhà Trường',
-            subtitle: 'Cập nhật những chuyển động mới nhất trong đời sống học đường',
+            title: 'Tin Tức & Hoạt Động Nổi Bật',
+            subtitle: 'Cập nhật những chuyển động mới nhất từ đời sống học đường và thành tích của học sinh',
             limit: 3,
             layout: 'grid_3_cols',
             news: [
               {
-                id: 'n1',
+                id: 'art-1',
                 title: 'Lễ Khai Giảng Năm Học 2025: Khát Vọng Vươn Tầm Quốc Tế',
-                slug: 'le-khai-giang-nam-hoc-2025',
-                excerpt: 'Thầy và trò Alpha School tưng bừng chào đón năm học mới với nhiều mục tiêu giáo dục đột phá.',
-                imageUrl: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=800&auto=format&fit=crop',
-                category: 'Sự kiện',
+                excerpt: 'Hơn 5000 học sinh trên toàn hệ thống Alpha School hân hoan bước vào năm học mới.',
+                slug: 'le-khai-giang-2025',
+                imageUrl: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=800&auto=format&fit=crop',
+                category: 'Sự kiện trường học',
                 publishedAt: '05/09/2026',
               },
               {
-                id: 'n2',
-                title: 'Học Sinh Alpha School Đạt Giải Nhất Cuộc Thi Sáng Tạo Robot Quốc Tế',
-                slug: 'dat-giai-nhat-robot-quoc-te',
-                excerpt: 'Đội tuyển Robotics trường xuất sắc vượt qua 50 đối thủ để bước lên bục vinh quang cao nhất.',
-                imageUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=800&auto=format&fit=crop',
-                category: 'Thành tích',
+                id: 'art-2',
+                title: 'Học Sinh Alpha School Đạt Huy Chương Vàng Olympic Khoa Học Trẻ Châu Á',
+                excerpt: 'Đội tuyển Alpha School xuất sắc mang về 3 Huy chương Vàng và 1 giải Sáng tạo đặc biệt.',
+                slug: 'hcv-olympic-khoa-hoc-chau-a',
+                imageUrl: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800&auto=format&fit=crop',
+                category: 'Thành tích học sinh',
                 publishedAt: '02/09/2026',
               },
               {
-                id: 'n3',
-                title: 'Hội Thảo Hướng Nghiệp & Học Bổng Du Học Các Đại Học Top 100 Thế Giới',
-                slug: 'hoi-thao-huong-nghiep-2025',
-                excerpt: 'Cơ hội giao lưu trực tiếp với đại diện tuyển sinh từ Anh, Mỹ, Úc và Canada.',
-                imageUrl: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=800&auto=format&fit=crop',
-                category: 'Tuyển sinh',
+                id: 'art-3',
+                title: 'Hội Thảo Du Học & Định Hướng Nghề Nghiệp Tương Lai 2026',
+                excerpt: 'Cơ hội kết nối trực tiếp cùng đại diện hơn 30 trường Đại học danh tiếng thế giới.',
+                slug: 'hoi-thao-du-hoc-2026',
+                imageUrl: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=800&auto=format&fit=crop',
+                category: 'Tuyển sinh & Hướng nghiệp',
                 publishedAt: '28/08/2026',
               },
             ],
@@ -302,10 +303,60 @@ const mockHomePageData: Page = {
       ],
     },
     {
+      id: 'sec-video-player',
+      pageId: 'page-home',
+      name: 'Thước phim giới thiệu Alpha School',
+      sortOrder: 8,
+      isVisible: true,
+      settings: {
+        layout: { width: 'full_width' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-video-player',
+          type: 'video_player',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: defaultVideoPlayerConfig,
+        },
+      ],
+    },
+    {
+      id: 'sec-partners',
+      pageId: 'page-home',
+      name: 'Đối tác chiến lược',
+      sortOrder: 9,
+      isVisible: true,
+      settings: {
+        layout: { width: 'container' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-partners',
+          type: 'partner_slider',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: {
+            title: 'Đối Tác Giáo Dục Chiến Lược Toàn Cầu',
+            subtitle: 'Đồng hành cùng các tổ chức khảo thí và tập đoàn công nghệ hàng đầu thế giới',
+            autoplay: true,
+            partners: [
+              { id: 'part-1', name: 'Cambridge Assessment International Education', logoUrl: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?q=80&w=300&auto=format&fit=crop' },
+              { id: 'part-2', name: 'Microsoft Education Showcase School', logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300&auto=format&fit=crop' },
+              { id: 'part-3', name: 'British Council Official IELTS Test Centre', logoUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=300&auto=format&fit=crop' },
+              { id: 'part-4', name: 'Apple Distinguished School Partner', logoUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=300&auto=format&fit=crop' },
+            ],
+          },
+        },
+      ],
+    },
+    {
       id: 'sec-gallery',
       pageId: 'page-home',
-      name: 'Thư viện hình ảnh hoạt động',
-      sortOrder: 7,
+      name: 'Thư viện hình ảnh học đường',
+      sortOrder: 10,
       isVisible: true,
       settings: {
         layout: { width: 'full_width' as any },
@@ -319,38 +370,38 @@ const mockHomePageData: Page = {
           isActive: true,
           config: {
             badge: 'KHOẢNH KHẮC ALPHA',
-            title: 'Thư Viện Hình Ảnh & Đời Sống Học Đường',
+            title: 'Thư Viện Hình Ảnh & Hoạt Động Học Đường',
             subtitle: 'Ghi lại những hành trình học tập, trải nghiệm và trưởng thành đầy tự hào của các thế hệ học sinh.',
             columns: '4',
-            categories: ['Tất cả', 'Hoạt động ngoại khóa', 'Cơ sở vật chất', 'Học thuật & STEM', 'Lễ hội & Tốt nghiệp'],
+            categories: ['Tất cả', 'Học thuật & STEM', 'Cơ sở vật chất', 'Hoạt động ngoại khóa', 'Lễ hội & Tốt nghiệp'],
             images: [
               {
                 id: 'gal-1',
                 title: 'Giờ Học STEM & Lập Trình Robot VEX',
                 category: 'Học thuật & STEM',
                 imageUrl: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800&auto=format&fit=crop',
-                caption: 'Học sinh cấp 2 hào hứng nghiên cứu mô hình robot phục vụ dự án khoa học quốc tế.',
+                caption: 'Học sinh cấp 2 nghiên cứu mô hình robot phục vụ dự án khoa học quốc tế.',
               },
               {
                 id: 'gal-2',
                 title: 'Hồ Bơi Bốn Mùa Chuẩn Olympic',
                 category: 'Cơ sở vật chất',
-                imageUrl: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?q=80&w=800&auto=format&fit=crop',
-                caption: 'Khu liên hợp thể thao dưới nước với hệ thống lọc nước ozone hiện đại.',
+                imageUrl: 'https://images.unsplash.com/photo-1576610616656-d3aa5d1f4534?q=80&w=800&auto=format&fit=crop',
+                caption: 'Khu phức hợp thể thao dưới nước với hệ thống lọc muối khoáng thông minh.',
               },
               {
                 id: 'gal-3',
-                title: 'Giải Bóng Đá Giao Hữu Alpha Cup',
+                title: 'Hội Diễn Nghệ Thuật Mùa Xuân',
                 category: 'Hoạt động ngoại khóa',
-                imageUrl: 'https://images.unsplash.com/photo-1526232761682-d26e03ac148e?q=80&w=800&auto=format&fit=crop',
-                caption: 'Rèn luyện thể lực và tinh thần đồng đội qua các giải thi đấu thể thao thường niên.',
+                imageUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop',
+                caption: 'Các tiết mục hòa tấu nhạc kịch do chính các em học sinh dàn dựng và biểu diễn.',
               },
               {
                 id: 'gal-4',
-                title: 'Lễ Tốt Nghiệp Tú Tài Quốc Tế A-Level',
+                title: 'Lễ Tốt Nghiệp Niên Khóa 2025',
                 category: 'Lễ hội & Tốt nghiệp',
-                imageUrl: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?q=80&w=800&auto=format&fit=crop',
-                caption: 'Khoảnh khắc rạng rỡ của tân cử nhân Alpha School trước thềm du học thế giới.',
+                imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=800&auto=format&fit=crop',
+                caption: 'Khoảnh khắc tung mũ cử nhân rạng rỡ của tân tú tài Alpha School.',
               },
             ],
           },
@@ -360,8 +411,8 @@ const mockHomePageData: Page = {
     {
       id: 'sec-testimonials',
       pageId: 'page-home',
-      name: 'Ý kiến phụ huynh & Cựu học sinh',
-      sortOrder: 8,
+      name: 'Cảm nhận phụ huynh',
+      sortOrder: 11,
       isVisible: true,
       settings: {
         layout: { width: 'container' as any },
@@ -374,34 +425,23 @@ const mockHomePageData: Page = {
           sortOrder: 1,
           isActive: true,
           config: {
-            title: 'Chia Sẻ Của Phụ Huynh & Cựu Học Sinh',
-            subtitle: 'Những cảm nhận chân thực về môi trường giáo dục song ngữ toàn diện tại Alpha School',
-            items: [
+            title: 'Phụ Huynh & Học Sinh Nói Gì Về Alpha School',
+            subtitle: 'Những chia sẻ chân thực từ cộng đồng phụ huynh đã tin tưởng đồng hành cùng nhà trường',
+            testimonials: [
               {
                 id: 't-1',
-                authorName: 'Chị Hoàng Thùy Linh',
-                role: 'Phụ huynh học sinh',
-                studentInfo: 'Mẹ bé Gia Hân - Lớp 5 Cambridge Cơ sở Biên Hòa',
-                content: 'Gia đình rất an tâm khi gửi gắm con tại Alpha School. Sau 3 năm, con không chỉ nói tiếng Anh lưu loát mà tư duy phản biện và khả năng tự lập của con tiến bộ vượt bậc.',
-                avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200&auto=format&fit=crop',
+                authorName: 'Chị Nguyễn Thanh Hương',
+                authorRole: 'Phụ huynh bé Gia Bảo (Lớp 3 Cơ sở Biên Hòa)',
+                content: 'Tôi rất ấn tượng với phương pháp giáo dục khơi gợi tính tự chủ tại trường. Con hào hứng đi học mỗi ngày và khả năng giao tiếp tiếng Anh tự tin vượt bậc.',
+                avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
                 rating: 5,
               },
               {
                 id: 't-2',
-                authorName: 'Anh Phạm Quốc Huy',
-                role: 'Phụ huynh học sinh',
-                studentInfo: 'Bố bé Minh Đức - Lớp 10 Tú tài Cơ sở Thủ Đức',
-                content: 'Chương trình Cambridge A-Level tại trường giúp con đạt điểm số rất cao và vừa nhận học bổng 70% từ Đại học Melbourne. Cảm ơn thầy cô đã luôn tận tụy đồng hành!',
-                avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop',
-                rating: 5,
-              },
-              {
-                id: 't-3',
-                authorName: 'Em Lê Mai Anh',
-                role: 'Cựu học sinh niên khóa 2024',
-                studentInfo: 'Thủ khoa A-Level - Sinh viên University of Toronto',
-                content: 'Môi trường Alpha School đã cho em sự tự tin bước ra thế giới. Những dự án STEM và hoạt động tranh biện tại trường là hành trang quý giá nhất trong hành trình du học của em.',
-                avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
+                authorName: 'Anh Trần Minh Trí',
+                authorRole: 'Phụ huynh em Bảo Anh (Lớp 11 Song ngữ Sala)',
+                content: 'Chương trình A-Level tại Alpha School rất chất lượng. Thầy cô giáo tận tâm và đội ngũ cố vấn du học đã hỗ trợ con tôi săn thành công học bổng 70% tại Đại học Melbourne.',
+                avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=300&auto=format&fit=crop',
                 rating: 5,
               },
             ],
@@ -410,51 +450,10 @@ const mockHomePageData: Page = {
       ],
     },
     {
-      id: 'sec-faq',
+      id: 'sec-cta-banner',
       pageId: 'page-home',
-      name: 'Giải đáp thắc mắc thường gặp',
-      sortOrder: 9,
-      isVisible: true,
-      settings: {
-        layout: { width: 'container' as any },
-      },
-      blocks: [
-        {
-          id: 'blk-faq',
-          type: 'faq_accordion',
-          version: 1,
-          sortOrder: 1,
-          isActive: true,
-          config: {
-            title: 'Giải Đáp Thắc Mắc Thường Gặp',
-            subtitle: 'Những thông tin quan trọng giúp Quý Phụ huynh hiểu rõ hơn về hệ thống và chương trình đào tạo',
-            items: [
-              {
-                question: 'Nhà trường có dịch vụ xe bus đưa đón học sinh tận nhà không?',
-                answer: 'Có, Alpha School cung cấp mạng lưới xe bus đưa đón tận nhà hoặc theo điểm đón tập trung tại tất cả các quận huyện thuộc địa bàn cơ sở với giám sát viên chuyên trách và định vị GPS báo về điện thoại phụ huynh.',
-              },
-              {
-                question: 'Chế độ dinh dưỡng và bán trú tại trường được tổ chức thế nào?',
-                answer: 'Bếp ăn chuẩn quốc tế HACCP chế biến tươi tại chỗ, cung cấp 3 bữa/ngày (sáng, trưa, xế) với thực đơn được các chuyên gia dinh dưỡng thiết kế cân bằng vi chất, thay đổi linh hoạt theo tuần.',
-              },
-              {
-                question: 'Học sinh chuyển từ trường công lập sang có theo kịp chương trình tiếng Anh không?',
-                answer: 'Nhà trường có các lớp bồi dưỡng tiếng Anh tăng cường (ESL Intensive) đầu năm học và đội ngũ giáo viên trợ giảng hỗ trợ kèm riêng để các em nhanh chóng bắt nhịp tự tin với bạn bè.',
-              },
-              {
-                question: 'Chính sách học bổng dành cho học sinh mới như thế nào?',
-                answer: 'Hằng năm Alpha School cấp quỹ học bổng Alpha Excellence trị giá 10 tỷ VNĐ với các mức 30%, 50% và 100% học phí dành cho các em học sinh có thành tích học tập và tài năng xuất sắc.',
-              },
-            ],
-          },
-        },
-      ],
-    },
-    {
-      id: 'sec-cta',
-      pageId: 'page-home',
-      name: 'Banner kêu gọi tuyển sinh',
-      sortOrder: 10,
+      name: 'Banner tuyển sinh',
+      sortOrder: 12,
       isVisible: true,
       settings: {
         layout: { width: 'full_width' as any },
@@ -467,29 +466,88 @@ const mockHomePageData: Page = {
           sortOrder: 1,
           isActive: true,
           config: {
-            badge: 'TUYỂN SINH NIÊN KHÓA 2025 - 2026',
-            title: 'Đăng Ký Tham Quan Trường & Nhận Học Bổng Lên Đến 50%',
-            subtitle: 'Trải nghiệm không gian học tập hiện đại chuẩn quốc tế, giao lưu cùng đội ngũ giáo viên nước ngoài và nhận ngay cẩm nang tuyển sinh chi tiết.',
-            primaryButtonText: 'Đăng ký tham quan ngay',
-            primaryButtonUrl: '/tuyen-sinh',
-            secondaryButtonText: 'Tải cẩm nang tuyển sinh',
-            secondaryButtonUrl: '/tin-tuc',
+            badge: 'TUYỂN SINH NĂM HỌC 2026 - 2027',
+            title: 'Sẵn Sàng Cho Con Bước Vào Hành Trình Khai Phóng Tri Thức?',
+            subtitle: 'Đăng ký tham quan trực tiếp các cơ sở trường học và nhận ngay học bổng tài năng Early Bird trị giá lên đến 20% học phí trọn năm.',
+            primaryButtonText: 'Đăng Ký Tham Quan Cơ Sở',
+            primaryButtonUrl: '#dang-ky',
+            secondaryButtonText: 'Tải Cẩm Nang Biểu Phí',
+            secondaryButtonUrl: '/bieu-phi-2026.pdf',
             hotline: '1900 8888',
             email: 'tuyensinh@school.edu.vn',
-            bgGradient: 'emerald',
-            showFloatingBadges: true,
+            theme: 'primary',
           },
+        },
+      ],
+    },
+    {
+      id: 'sec-faq',
+      pageId: 'page-home',
+      name: 'Hỏi đáp thường gặp',
+      sortOrder: 13,
+      isVisible: true,
+      settings: {
+        layout: { width: 'container' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-faq',
+          type: 'faq_accordion',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: {
+            title: 'Câu Hỏi Thường Gặp Về Tuyển Sinh & Học Tập',
+            subtitle: 'Giải đáp những thắc mắc phổ biến của Phụ huynh khi tìm hiểu về môi trường học tập tại Alpha School',
+            items: [
+              {
+                id: 'faq-1',
+                question: 'Trường có tổ chức thi đầu vào hay xét tuyển học bạ?',
+                answer: 'Nhà trường kết hợp đánh giá năng lực tư duy, khảo sát phản xạ ngôn ngữ tiếng Anh phù hợp từng lứa tuổi và phỏng vấn trực tiếp với Ban giám hiệu.',
+              },
+              {
+                id: 'faq-2',
+                question: 'Thời gian biểu và chương trình bán trú của học sinh như thế nào?',
+                answer: 'Học sinh học từ 07:45 đến 16:30 từ Thứ Hai đến Thứ Sáu. Nhà trường phục vụ bữa sáng nhẹ, bữa trưa dinh dưỡng chuẩn hữu cơ và bữa xế chiều.',
+              },
+              {
+                id: 'faq-3',
+                question: 'Trường có xe bus đưa đón học sinh tận nhà không?',
+                answer: 'Hệ thống xe bus hiện đại có giám thị đi kèm phục vụ hơn 20 tuyến đưa đón khắp các quận huyện tại TP.HCM, Biên Hòa và Bình Dương.',
+              },
+            ],
+          },
+        },
+      ],
+    },
+    {
+      id: 'sec-google-map',
+      pageId: 'page-home',
+      name: 'Bản đồ định vị cơ sở toàn quốc',
+      sortOrder: 14,
+      isVisible: true,
+      settings: {
+        layout: { width: 'full_width' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-google-map',
+          type: 'google_map',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: defaultGoogleMapConfig,
         },
       ],
     },
     {
       id: 'sec-contact-box',
       pageId: 'page-home',
-      name: 'Khối liên hệ trực tiếp các cơ sở',
-      sortOrder: 11,
+      name: 'Khối liên hệ đa cơ sở',
+      sortOrder: 15,
       isVisible: true,
       settings: {
-        layout: { width: 'container' as any },
+        layout: { width: 'full_width' as any },
       },
       blocks: [
         {
@@ -545,7 +603,7 @@ const mockHomePageData: Page = {
       id: 'sec-form-contact',
       pageId: 'page-home',
       name: 'Biểu mẫu tư vấn tuyển sinh',
-      sortOrder: 12,
+      sortOrder: 16,
       isVisible: true,
       settings: {
         layout: { width: 'container' as any },
@@ -558,7 +616,7 @@ const mockHomePageData: Page = {
           sortOrder: 1,
           isActive: true,
           config: {
-            title: 'Đăng Ký Nhận Cẩm Nang Tuyển Sinh & Tư Vấn 2025 - 2026',
+            title: 'Đăng Ký Nhận Cẩm Nang Tuyển Sinh & Tư Vấn 2026 - 2027',
             subtitle: 'Để lại thông tin để chuyên viên tuyển sinh cơ sở gần nhất liên hệ giải đáp chi tiết trong vòng 24 giờ',
             formCode: 'tuyen-sinh-2025',
             submitButtonText: 'Gửi thông tin đăng ký',
@@ -568,7 +626,6 @@ const mockHomePageData: Page = {
       ],
     },
   ],
-
 };
 
 export default function HomePage() {

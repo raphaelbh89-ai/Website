@@ -1,19 +1,22 @@
 import React from 'react';
 import { BlockRenderProps } from '@school-cms/cms';
-import { NewsListConfig } from './schema';
+import { NewsListConfig, defaultNewsListConfig } from './schema';
 
 export const NewsListComponent: React.FC<BlockRenderProps<NewsListConfig>> = ({
   config,
   customClasses = '',
 }) => {
+  const newsItems = config?.news || (config as any)?.articles || defaultNewsListConfig.news || [];
+  const displayLimit = config?.limit || 3;
+
   return (
     <div className={`w-full py-16 px-4 max-w-7xl mx-auto ${customClasses}`}>
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">
-            {config.title}
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2 font-heading">
+            {config?.title || defaultNewsListConfig.title}
           </h2>
-          {config.subtitle && (
+          {config?.subtitle && (
             <p className="text-slate-600">{config.subtitle}</p>
           )}
         </div>
@@ -26,7 +29,7 @@ export const NewsListComponent: React.FC<BlockRenderProps<NewsListConfig>> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {config.news.slice(0, config.limit).map((item) => (
+        {newsItems.slice(0, displayLimit).map((item) => (
           <article
             key={item.id}
             className="group flex flex-col bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300"

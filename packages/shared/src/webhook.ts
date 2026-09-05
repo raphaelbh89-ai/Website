@@ -2,7 +2,9 @@ export type WebhookEventType =
   | 'lead.created'
   | 'lead.status_updated'
   | 'page.published'
-  | 'system.alert';
+  | 'system.alert'
+  | 'admission.submitted'
+  | 'admission.status_changed';
 
 export interface WebhookSubscription {
   id: string;

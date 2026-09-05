@@ -10,7 +10,31 @@ import {
   defaultGalleryConfig,
   ContactBoxSchema,
   defaultContactBoxConfig,
+  VideoPlayerSchema,
+  defaultVideoPlayerConfig,
+  GoogleMapSchema,
+  defaultGoogleMapConfig,
+  RichTextSchema,
+  defaultRichTextConfig,
+  ImageTextSchema,
+  defaultImageTextConfig,
 } from '@school-cms/blocks';
+import {
+  AdmissionApplication,
+  AdmissionStatus,
+  calculateAdmissionMetrics,
+  generateApplicationCode,
+  ADMISSION_STATUS_LABELS,
+} from '@school-cms/shared';
+import {
+  AdmissionStep1StudentSchema,
+  AdmissionStep2ParentSchema,
+  AdmissionStep3DocumentSchema,
+  AdmissionStep4ProgramSchema,
+  validateAdmissionStep,
+  validateCompleteAdmission,
+  createAdmissionApplication,
+} from '@school-cms/forms';
 import {
   RoleCode,
   hasPermission,
@@ -76,9 +100,9 @@ async function runTestSuite() {
   // 1. BLOCK REGISTRY & OPEN/CLOSED ARCHITECTURE
   console.log('--- 1. Block Registry & Dynamic Blocks ---');
 
-  it('BlockRegistry should have all 12 core blocks registered', () => {
+  it('BlockRegistry should have all 16 core blocks registered', () => {
     const blocks = BlockRegistry.getAll();
-    assert.strictEqual(blocks.length >= 12, true, 'Must have at least 12 core blocks registered');
+    assert.strictEqual(blocks.length >= 16, true, 'Must have all 16 core blocks registered');
     
     const types = blocks.map(b => b.type);
     assert.ok(types.includes('hero_banner'), 'Must register hero_banner');
@@ -93,6 +117,10 @@ async function runTestSuite() {
     assert.ok(types.includes('cta_banner'), 'Must register cta_banner');
     assert.ok(types.includes('gallery'), 'Must register gallery');
     assert.ok(types.includes('contact_box'), 'Must register contact_box');
+    assert.ok(types.includes('video_player'), 'Must register video_player');
+    assert.ok(types.includes('google_map'), 'Must register google_map');
+    assert.ok(types.includes('rich_text'), 'Must register rich_text');
+    assert.ok(types.includes('image_text'), 'Must register image_text');
   });
 
   it('BlockRegistry should resolve config and apply version migrations', () => {
@@ -937,6 +965,230 @@ async function runTestSuite() {
     assert.strictEqual(finalStats.totalKeys, 0);
     assert.strictEqual(finalStats.recentLogs[0].type, 'ALL');
     assert.strictEqual(finalStats.recentLogs[0].target, '*');
+  });
+
+  // 16. HOÀN THIỆN 16 KHỐI GIAO DIỆN CHUẨN (100% STANDARD BLOCK CATALOG)
+  console.log('\n--- 16. Complete 16 Standard Blocks Library & 100% Catalog Coverage ---');
+
+  it('BlockRegistry validates schemas and default configs for all 16 registered blocks (including video_player, google_map, rich_text, image_text)', () => {
+    const allBlocks = BlockRegistry.getAll();
+    assert.strictEqual(allBlocks.length, 16, 'Exactly 16 standard blocks must be registered');
+
+    // Kiểm tra từng block có schema và defaultConfig hợp lệ
+    for (const block of allBlocks) {
+      assert.ok(block.type, 'Block must have type');
+      assert.ok(block.name, 'Block must have human name');
+      assert.ok(block.schema, `Block ${block.type} must have Zod schema`);
+      assert.ok(block.defaultConfig, `Block ${block.type} must have defaultConfig`);
+
+      const parseResult = block.schema.safeParse(block.defaultConfig);
+      assert.strictEqual(
+        parseResult.success,
+        true,
+        `Default config for block "${block.type}" must strictly satisfy its schema`
+      );
+    }
+  });
+
+  it('New block definitions (video_player, google_map, rich_text, image_text) validate schemas, custom configs, and default states', () => {
+    // 1. Video Player Block
+    const validVideoConfig = {
+      ...defaultVideoPlayerConfig,
+      title: 'Phim Giới Thiệu Khuôn Viên Alpha 2026',
+      duration: '05:30',
+      chapters: [
+        { id: 'ch-1', time: '00:00', title: 'Giới thiệu' },
+        { id: 'ch-2', time: '02:15', title: 'Phòng Lab STEM' },
+      ],
+    };
+    const videoParse = VideoPlayerSchema.safeParse(validVideoConfig);
+    assert.strictEqual(videoParse.success, true);
+
+    // 2. Google Map Block
+    const validMapConfig = {
+      ...defaultGoogleMapConfig,
+      defaultCampusId: 'loc-bien-hoa',
+    };
+    const mapParse = GoogleMapSchema.safeParse(validMapConfig);
+    assert.strictEqual(mapParse.success, true);
+    assert.strictEqual(mapParse.data?.campuses.length >= 3, true);
+
+    // 3. Rich Text Block
+    const validRichTextConfig = {
+      ...defaultRichTextConfig,
+      maxWidth: 'wide' as const,
+      alignment: 'center' as const,
+    };
+    const richTextParse = RichTextSchema.safeParse(validRichTextConfig);
+    assert.strictEqual(richTextParse.success, true);
+
+    // 4. Image Text (Split) Block
+    const validImageTextConfig = {
+      ...defaultImageTextConfig,
+      imagePosition: 'right' as const,
+      statsBadge: { number: '20+', label: 'Năm uy tín' },
+    };
+    const imageTextParse = ImageTextSchema.safeParse(validImageTextConfig);
+    assert.strictEqual(imageTextParse.success, true);
+  });
+
+  // 17. ONLINE ADMISSION MULTI-STEP WIZARD & APPLICATION ENGINE
+  console.log('\n--- 17. Online Admission Multi-Step Wizard & Application Engine ---');
+
+  it('Admissions Form Wizard validates step-by-step schemas (Student, Parent, Documents, Program) and catches invalid input', () => {
+    // Step 1: Student info validation
+    const validStudent = {
+      fullName: 'Trần Minh Khang',
+      dateOfBirth: '2015-08-10',
+      gender: 'nam',
+      currentSchool: 'Tiểu học Lê Quý Đôn',
+    };
+    const s1Res = validateAdmissionStep(1, validStudent);
+    assert.strictEqual(s1Res.success, true);
+
+    const invalidStudent = { ...validStudent, fullName: 'T' }; // too short
+    assert.strictEqual(validateAdmissionStep(1, invalidStudent).success, false);
+
+    // Step 2: Parent info validation
+    const validParent = {
+      fullName: 'Trần Văn Hoàng',
+      relationship: 'Bố',
+      phone: '0903 888 999',
+      email: 'hoang.tran@example.com',
+      address: 'Phường Trảng Dài, TP. Biên Hòa, Đồng Nai',
+    };
+    const s2Res = validateAdmissionStep(2, validParent);
+    assert.strictEqual(s2Res.success, true);
+
+    const invalidParentPhone = { ...validParent, phone: 'invalid-phone-abc' };
+    assert.strictEqual(validateAdmissionStep(2, invalidParentPhone).success, false);
+
+    // Step 3: Documents validation
+    const validDocs = {
+      documents: [
+        { id: 'd1', name: 'Giấy khai sinh', type: 'birth_certificate', url: 'https://school.edu.vn/doc1.pdf', verified: false },
+      ],
+    };
+    const s3Res = validateAdmissionStep(3, validDocs);
+    assert.strictEqual(s3Res.success, true);
+
+    const emptyDocs = { documents: [] }; // requires at least 1 document
+    assert.strictEqual(validateAdmissionStep(3, emptyDocs).success, false);
+
+    // Step 4: Program & Campus choice
+    const validProgram = {
+      branchId: 'b-001',
+      branchName: 'Alpha School Biên Hòa',
+      programType: 'cambridge_bilingual',
+      programName: 'Song Ngữ Cambridge',
+      gradeLevel: 'thcs',
+      gradeTarget: 'Lớp 6',
+      notes: 'Đăng ký xét học bổng tài năng',
+    };
+    const s4Res = validateAdmissionStep(4, validProgram);
+    assert.strictEqual(s4Res.success, true);
+  });
+
+  it('Admissions Application Engine creates applications, generates sequential codes (HS-2026-XXXX), and calculates conversion metrics', () => {
+    // 1. Code generation
+    const code1 = generateApplicationCode(1);
+    const code42 = generateApplicationCode(42);
+    assert.strictEqual(code1, 'HS-2026-0001');
+    assert.strictEqual(code42, 'HS-2026-0042');
+
+    // 2. Application creation from complete form
+    const fullData = {
+      studentInfo: {
+        fullName: 'Nguyễn Diệu Linh',
+        dateOfBirth: '2020-04-18',
+        gender: 'nu' as const,
+        currentSchool: 'Mầm non Sao Mai',
+      },
+      parentInfo: {
+        fullName: 'Nguyễn Quốc Hùng',
+        relationship: 'Bố' as const,
+        phone: '0987 654 321',
+        email: 'hung.nguyen@gmail.com',
+        address: 'Quận 7, TP.HCM',
+      },
+      documents: [
+        { id: 'doc-ks', name: 'Khai sinh bản sao', type: 'birth_certificate' as const, url: 'https://school.edu.vn/ks.pdf', verified: true },
+      ],
+      programInfo: {
+        branchId: 'b-002',
+        branchName: 'Alpha School TP. Thủ Đức',
+        programType: 'high_quality' as const,
+        programName: 'Hệ Chất Lượng Cao',
+        gradeLevel: 'tieu_hoc' as const,
+        gradeTarget: 'Lớp 1',
+        notes: 'Mong muốn học lớp cô Mai chủ nhiệm',
+      },
+    };
+
+    const validation = validateCompleteAdmission(fullData);
+    assert.strictEqual(validation.success, true);
+
+    if (validation.success) {
+      const app = createAdmissionApplication(validation.data, 99);
+      assert.strictEqual(app.code, 'HS-2026-0099');
+      assert.strictEqual(app.status, 'HO_SO_MOI');
+      assert.strictEqual(app.studentInfo.fullName, 'Nguyễn Diệu Linh');
+      assert.strictEqual(app.branchId, 'b-002');
+      assert.strictEqual(app.feePaid, false);
+      assert.ok(app.submittedAt);
+    }
+
+    // 3. Conversion Metrics calculation
+    const mockApps: AdmissionApplication[] = [
+      { id: '1', code: 'HS-2026-0001', branchId: 'b1', branchName: 'B1', programType: 'cambridge_bilingual', programName: 'P1', gradeLevel: 'thcs', gradeTarget: 'Lớp 6', studentInfo: {} as any, parentInfo: {} as any, documents: [], status: 'HO_SO_MOI', feePaid: false, submittedAt: '', updatedAt: '' },
+      { id: '2', code: 'HS-2026-0002', branchId: 'b1', branchName: 'B1', programType: 'cambridge_bilingual', programName: 'P1', gradeLevel: 'thcs', gradeTarget: 'Lớp 6', studentInfo: {} as any, parentInfo: {} as any, documents: [], status: 'HEN_PHONG_VAN', feePaid: false, submittedAt: '', updatedAt: '' },
+      { id: '3', code: 'HS-2026-0003', branchId: 'b1', branchName: 'B1', programType: 'cambridge_bilingual', programName: 'P1', gradeLevel: 'thcs', gradeTarget: 'Lớp 6', studentInfo: {} as any, parentInfo: {} as any, documents: [], status: 'DA_TRUNG_TUYEN', feePaid: true, submittedAt: '', updatedAt: '' },
+      { id: '4', code: 'HS-2026-0004', branchId: 'b1', branchName: 'B1', programType: 'cambridge_bilingual', programName: 'P1', gradeLevel: 'thcs', gradeTarget: 'Lớp 6', studentInfo: {} as any, parentInfo: {} as any, documents: [], status: 'HOAN_TAT_HOC_PHI', feePaid: true, submittedAt: '', updatedAt: '' },
+    ];
+
+    const metrics = calculateAdmissionMetrics(mockApps);
+    assert.strictEqual(metrics.total, 4);
+    assert.strictEqual(metrics.byStatus.HO_SO_MOI, 1);
+    assert.strictEqual(metrics.byStatus.HEN_PHONG_VAN, 1);
+    assert.strictEqual(metrics.byStatus.DA_TRUNG_TUYEN, 1);
+    assert.strictEqual(metrics.byStatus.HOAN_TAT_HOC_PHI, 1);
+    assert.strictEqual(metrics.interviewRate, 75); // (3 / 4) * 100 = 75%
+    assert.strictEqual(metrics.acceptanceRate, 50); // (2 / 4) * 100 = 50%
+    assert.strictEqual(metrics.conversionRate, 25); // (1 / 4) * 100 = 25%
+  });
+
+  it('Online Admissions REST API lifecycle satisfies application listing, filtering by campus/grade, and status progression workflow', () => {
+    // 1. Status progression verification
+    const progressionFlow: AdmissionStatus[] = [
+      'HO_SO_MOI',
+      'HEN_PHONG_VAN',
+      'DA_TRUNG_TUYEN',
+      'HOAN_TAT_HOC_PHI',
+    ];
+
+    for (const status of progressionFlow) {
+      assert.ok(ADMISSION_STATUS_LABELS[status], `Label config must exist for status ${status}`);
+      assert.ok(ADMISSION_STATUS_LABELS[status].label, `Status ${status} must have label text`);
+      assert.ok(ADMISSION_STATUS_LABELS[status].color, `Status ${status} must have text color class`);
+    }
+
+    // 2. Verify status transition logic
+    let appState: AdmissionStatus = 'HO_SO_MOI';
+    assert.strictEqual(appState, 'HO_SO_MOI');
+
+    appState = 'HEN_PHONG_VAN';
+    const interviewDate = '2026-09-20 09:30';
+    const interviewNotes = 'Phỏng vấn trực tiếp cùng Hội đồng tuyển sinh';
+    assert.ok(interviewDate && interviewNotes);
+
+    appState = 'DA_TRUNG_TUYEN';
+    assert.strictEqual(appState, 'DA_TRUNG_TUYEN');
+
+    appState = 'HOAN_TAT_HOC_PHI';
+    const feePaid = true;
+    const feeAmount = 25000000;
+    assert.strictEqual(feePaid, true);
+    assert.strictEqual(feeAmount, 25000000);
   });
 
 

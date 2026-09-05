@@ -8,3 +8,4 @@ export * from './page';
 export * from './i18n';
 export * from './pipeline';
 export * from './webhook';
+export * from './admission';

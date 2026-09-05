@@ -8,6 +8,10 @@ import {
   PIPELINE_STAGES,
   getNextPipelineStatus,
   calculatePipelineMetrics,
+  AdmissionApplication,
+  AdmissionStatus,
+  calculateAdmissionMetrics,
+  ADMISSION_STATUS_LABELS,
 } from '@school-cms/shared';
 import { ALL_PERMISSIONS, RolePermissions } from '@school-cms/auth';
 import '@school-cms/blocks';
@@ -88,8 +92,151 @@ export default function AdminDashboard() {
   // Current user role switcher for testing RBAC
   const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'admissions' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+
+  // Admissions state
+  const [admissions, setAdmissions] = useState<AdmissionApplication[]>([
+    {
+      id: 'app-001',
+      code: 'HS-2026-0001',
+      branchId: 'b-001',
+      branchName: 'Alpha School - Cơ sở Biên Hòa',
+      programType: 'cambridge_bilingual',
+      programName: 'Hệ Song Ngữ Cambridge Quốc Tế',
+      gradeLevel: 'thcs',
+      gradeTarget: 'Lớp 6',
+      studentInfo: {
+        fullName: 'Trần Gia Bảo',
+        dateOfBirth: '2014-05-12',
+        gender: 'nam',
+        currentSchool: 'Tiểu học Trảng Dài',
+      },
+      parentInfo: {
+        fullName: 'Trần Quốc Tuấn',
+        relationship: 'Bố',
+        phone: '0912 345 678',
+        email: 'quoctuan.tran@gmail.com',
+        address: 'Phường Tân Hiệp, TP. Biên Hòa, Đồng Nai',
+      },
+      documents: [
+        { id: 'doc-1', name: 'Giấy khai sinh photo công chứng', type: 'birth_certificate', url: 'https://school.edu.vn/docs/ks-001.pdf', verified: true },
+        { id: 'doc-2', name: 'Học bạ tiểu học 5 năm', type: 'transcript', url: 'https://school.edu.vn/docs/hb-001.pdf', verified: true },
+      ],
+      status: 'HEN_PHONG_VAN',
+      interviewDate: '2026-09-15 09:00',
+      interviewNotes: 'Đánh giá năng lực tư duy toán & Tiếng Anh Cambridge',
+      feePaid: false,
+      notes: 'Học sinh có chứng chỉ Cambridge Flyers 14 khiên',
+      submittedAt: '2026-09-01T08:30:00.000Z',
+      updatedAt: '2026-09-02T10:15:00.000Z',
+    },
+    {
+      id: 'app-002',
+      code: 'HS-2026-0002',
+      branchId: 'b-002',
+      branchName: 'Alpha School - Cơ sở TP. Thủ Đức',
+      programType: 'high_quality',
+      programName: 'Hệ Chất Lượng Cao Tăng Cường',
+      gradeLevel: 'tieu_hoc',
+      gradeTarget: 'Lớp 1',
+      studentInfo: {
+        fullName: 'Nguyễn Ngọc Diệp',
+        dateOfBirth: '2020-08-20',
+        gender: 'nu',
+        currentSchool: 'Mầm non Tuổi Thơ',
+      },
+      parentInfo: {
+        fullName: 'Nguyễn Thanh Hà',
+        relationship: 'Mẹ',
+        phone: '0988 765 432',
+        email: 'thanhha.nguyen@yahoo.com',
+        address: 'Thảo Điền, TP. Thủ Đức, TP.HCM',
+      },
+      documents: [
+        { id: 'doc-3', name: 'Giấy khai sinh bản sao', type: 'birth_certificate', url: 'https://school.edu.vn/docs/ks-002.pdf', verified: true },
+        { id: 'doc-4', name: 'Hồ sơ sức khỏe trường mầm non', type: 'health_record', url: 'https://school.edu.vn/docs/sk-002.pdf', verified: true },
+      ],
+      status: 'DA_TRUNG_TUYEN',
+      interviewDate: '2026-09-03 14:00',
+      interviewNotes: 'Đạt 95/100 điểm trắc nghiệm tâm lý & nhận thức lứa tuổi',
+      feePaid: true,
+      feeAmount: 15000000,
+      notes: 'Đã hoàn tất đóng phí giữ chỗ nhập học',
+      submittedAt: '2026-08-28T09:00:00.000Z',
+      updatedAt: '2026-09-04T11:00:00.000Z',
+    },
+    {
+      id: 'app-003',
+      code: 'HS-2026-0003',
+      branchId: 'b-001',
+      branchName: 'Alpha School - Cơ sở Biên Hòa',
+      programType: 'stem_integrated',
+      programName: 'Hệ Tích Hợp STEM & Công Nghệ',
+      gradeLevel: 'thpt',
+      gradeTarget: 'Lớp 10',
+      studentInfo: {
+        fullName: 'Lê Hoàng Nam',
+        dateOfBirth: '2011-03-15',
+        gender: 'nam',
+        currentSchool: 'THCS Thống Nhất',
+      },
+      parentInfo: {
+        fullName: 'Lê Văn Khang',
+        relationship: 'Bố',
+        phone: '0903 111 222',
+        email: 'vankhang.le@gmail.com',
+        address: 'Phường Quyết Thắng, TP. Biên Hòa, Đồng Nai',
+      },
+      documents: [
+        { id: 'doc-5', name: 'Giấy khai sinh photo', type: 'birth_certificate', url: 'https://school.edu.vn/docs/ks-003.pdf', verified: false },
+        { id: 'doc-6', name: 'Học bạ THCS 4 năm', type: 'transcript', url: 'https://school.edu.vn/docs/hb-003.pdf', verified: false },
+      ],
+      status: 'HO_SO_MOI',
+      feePaid: false,
+      notes: 'Có giải Ba môn Tin học cấp Thành phố năm 2025',
+      submittedAt: '2026-09-05T07:45:00.000Z',
+      updatedAt: '2026-09-05T07:45:00.000Z',
+    },
+    {
+      id: 'app-004',
+      code: 'HS-2026-0004',
+      branchId: 'b-002',
+      branchName: 'Alpha School - Cơ sở TP. Thủ Đức',
+      programType: 'cambridge_bilingual',
+      programName: 'Hệ Song Ngữ Cambridge Quốc Tế',
+      gradeLevel: 'mam_non',
+      gradeTarget: 'Lớp Mẫu Giáo Lớn (5 tuổi)',
+      studentInfo: {
+        fullName: 'Đặng Minh Anh',
+        dateOfBirth: '2021-11-05',
+        gender: 'nu',
+        currentSchool: 'Mầm non Song Ngữ Ánh Dương',
+      },
+      parentInfo: {
+        fullName: 'Đặng Hoàng Quân',
+        relationship: 'Bố',
+        phone: '0933 999 888',
+        email: 'quan.dang@gmail.com',
+        address: 'Phường An Phú, TP. Thủ Đức, TP.HCM',
+      },
+      documents: [
+        { id: 'doc-7', name: 'Giấy khai sinh bản sao', type: 'birth_certificate', url: 'https://school.edu.vn/docs/ks-004.pdf', verified: true },
+      ],
+      status: 'HOAN_TAT_HOC_PHI',
+      interviewDate: '2026-08-25 10:00',
+      interviewNotes: 'Hoàn thành xuất sắc bài test phản xạ song ngữ Anh - Việt',
+      feePaid: true,
+      feeAmount: 25000000,
+      notes: 'Đã nhận đồng phục và tài liệu nhập học năm học mới',
+      submittedAt: '2026-08-20T14:10:00.000Z',
+      updatedAt: '2026-08-29T16:20:00.000Z',
+    },
+  ]);
+  const [selectedAdmission, setSelectedAdmission] = useState<AdmissionApplication | null>(null);
+  const [admissionFilterStatus, setAdmissionFilterStatus] = useState<string>('ALL');
+  const [admissionFilterGrade, setAdmissionFilterGrade] = useState<string>('ALL');
+  const [admissionSearch, setAdmissionSearch] = useState<string>('');
 
   // Page state
   const [blocks, setBlocks] = useState<BlockItem[]>([
@@ -1059,6 +1206,14 @@ export default function AdminDashboard() {
             <span>🎯</span> CRM Tuyển sinh ({leads.length})
           </button>
           <button
+            onClick={() => setActiveTab('admissions')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeTab === 'admissions' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <span>🎓</span> Tuyển sinh Trực tuyến ({admissions.length})
+          </button>
+          <button
             onClick={() => setActiveTab('forms')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
               activeTab === 'forms' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -1200,6 +1355,7 @@ export default function AdminDashboard() {
               {activeTab === 'branches' && 'Quản Lý Hệ Thống Cơ Sở & Chi Nhánh'}
               {activeTab === 'articles' && 'Quản Lý Bài Viết & Tin Tức Học Đường'}
               {activeTab === 'leads' && 'Hồ Sơ Tuyển Sinh & Phễu Chăm Sóc Phụ Huynh'}
+              {activeTab === 'admissions' && 'Quản Lý Tuyển Sinh Trực Tuyến Đa Bước & Hồ Sơ Điện Tử'}
               {activeTab === 'theme' && 'Tùy Biến Giao Diện Đa Cơ Sở (Theme Customizer)'}
               {activeTab === 'forms' && 'Trình Thiết Kế Biểu Mẫu Động (Dynamic Form Builder)'}
               {activeTab === 'media' && 'Thư Viện Tệp Tin Đa Phương Tiện (Media Asset Hub)'}
@@ -1829,6 +1985,560 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* TAB 4.5: ONLINE ADMISSIONS WIZARD & APPLICATION REVIEW */}
+        {activeTab === 'admissions' && (() => {
+          const filteredAdmissions = admissions.filter((app) => {
+            if (selectedBranch !== 'all' && app.branchId !== selectedBranch) return false;
+            if (admissionFilterStatus !== 'ALL' && app.status !== admissionFilterStatus) return false;
+            if (admissionFilterGrade !== 'ALL' && app.gradeLevel !== admissionFilterGrade) return false;
+            if (admissionSearch) {
+              const q = admissionSearch.toLowerCase();
+              const match =
+                app.code.toLowerCase().includes(q) ||
+                app.studentInfo.fullName.toLowerCase().includes(q) ||
+                app.parentInfo.fullName.toLowerCase().includes(q) ||
+                app.parentInfo.phone.includes(q) ||
+                app.parentInfo.email.toLowerCase().includes(q);
+              if (!match) return false;
+            }
+            return true;
+          });
+          const admMetrics = calculateAdmissionMetrics(filteredAdmissions);
+
+          const handleUpdateStatus = (appId: string, newStatus: AdmissionStatus) => {
+            setAdmissions((prev) =>
+              prev.map((item) =>
+                item.id === appId
+                  ? { ...item, status: newStatus, updatedAt: new Date().toISOString() }
+                  : item
+              )
+            );
+            if (selectedAdmission && selectedAdmission.id === appId) {
+              setSelectedAdmission((prev) =>
+                prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : null
+              );
+            }
+          };
+
+          return (
+            <div className="flex-1 p-8 overflow-y-auto bg-slate-50/50">
+              <div className="max-w-7xl mx-auto space-y-8">
+                {/* Header Title & Subtitle */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200 mb-2">
+                      <span>🎓</span> Module Tuyển Sinh Trực Tuyến Đa Bước (Docs 11.4)
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                      Hồ Sơ Tuyển Sinh Trực Tuyến & Thẩm Định Đa Bước
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Quản lý toàn diện quy trình 4 bước: Khai sinh, Học bạ, Khảo sát ĐGNL và Hoàn tất phí nhập học.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const csvContent =
+                          'data:text/csv;charset=utf-8,' +
+                          ['Mã Hồ Sơ,Học Sinh,Ngày Sinh,Phụ Huynh,SĐT,Cơ Sở,Khối Lớp,Trạng Thái']
+                            .concat(
+                              filteredAdmissions.map(
+                                (a) =>
+                                  `"${a.code}","${a.studentInfo.fullName}","${a.studentInfo.dateOfBirth}","${a.parentInfo.fullName}","${a.parentInfo.phone}","${a.branchName}","${a.gradeTarget}","${a.status}"`
+                              )
+                            )
+                            .join('\n');
+                        const encodedUri = encodeURI(csvContent);
+                        const link = document.createElement('a');
+                        link.setAttribute('href', encodedUri);
+                        link.setAttribute('download', `admissions-export-${Date.now()}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 shadow-sm transition-all"
+                    >
+                      <span>📥 Xuất CSV Hồ Sơ</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* KPI Performance Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-2">
+                      <span>TỔNG HỒ SƠ NỘP</span>
+                      <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">📋</span>
+                    </div>
+                    <div className="text-3xl font-black text-slate-900">{admMetrics.total}</div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {admMetrics.byStatus.HO_SO_MOI} hồ sơ mới chờ duyệt
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-2">
+                      <span>HẸN PHỎNG VẤN / ĐGNL</span>
+                      <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600">🗓️</span>
+                    </div>
+                    <div className="text-3xl font-black text-amber-600">
+                      {admMetrics.byStatus.HEN_PHONG_VAN}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Tỷ lệ mời đánh giá: <strong className="text-amber-700">{admMetrics.interviewRate}%</strong>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-2">
+                      <span>ĐÃ TRÚNG TUYỂN</span>
+                      <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">🎉</span>
+                    </div>
+                    <div className="text-3xl font-black text-indigo-600">
+                      {admMetrics.byStatus.DA_TRUNG_TUYEN}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Tỷ lệ trúng tuyển: <strong className="text-indigo-700">{admMetrics.acceptanceRate}%</strong>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between text-slate-500 text-xs font-semibold mb-2">
+                      <span>HOÀN TẤT NHẬP HỌC</span>
+                      <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">✅</span>
+                    </div>
+                    <div className="text-3xl font-black text-emerald-600">
+                      {admMetrics.byStatus.HOAN_TAT_HOC_PHI}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Tỷ lệ chốt nhập học: <strong className="text-emerald-700">{admMetrics.conversionRate}%</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filter & Search Toolbar */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="relative w-full md:w-80">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">
+                      🔍
+                    </span>
+                    <input
+                      type="text"
+                      value={admissionSearch}
+                      onChange={(e) => setAdmissionSearch(e.target.value)}
+                      placeholder="Tìm theo mã hồ sơ, thí sinh, SĐT..."
+                      className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    <select
+                      value={admissionFilterStatus}
+                      onChange={(e) => setAdmissionFilterStatus(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="ALL">Tất cả trạng thái</option>
+                      <option value="HO_SO_MOI">Hồ sơ mới nộp</option>
+                      <option value="HEN_PHONG_VAN">Hẹn phỏng vấn / ĐGNL</option>
+                      <option value="DA_TRUNG_TUYEN">Đã trúng tuyển</option>
+                      <option value="HOAN_TAT_HOC_PHI">Đã nhập học (Đóng phí)</option>
+                      <option value="TU_CHOI">Từ chối / Rút hồ sơ</option>
+                    </select>
+
+                    <select
+                      value={admissionFilterGrade}
+                      onChange={(e) => setAdmissionFilterGrade(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="ALL">Tất cả khối học</option>
+                      <option value="mam_non">Mầm non</option>
+                      <option value="tieu_hoc">Tiểu học</option>
+                      <option value="thcs">Trung học cơ sở</option>
+                      <option value="thpt">Trung học phổ thông</option>
+                    </select>
+
+                    <span className="text-xs text-slate-400 font-medium">
+                      {filteredAdmissions.length} hồ sơ
+                    </span>
+                  </div>
+                </div>
+
+                {/* Admissions Table */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-wider">
+                          <th className="py-3.5 px-4">Mã Hồ Sơ</th>
+                          <th className="py-3.5 px-4">Học Sinh Dự Tuyển</th>
+                          <th className="py-3.5 px-4">Phụ Huynh Liên Hệ</th>
+                          <th className="py-3.5 px-4">Cơ Sở & Lớp Đăng Ký</th>
+                          <th className="py-3.5 px-4">Hồ Sơ Đính Kèm</th>
+                          <th className="py-3.5 px-4">Trạng Thái Quy Trình</th>
+                          <th className="py-3.5 px-4 text-right">Thao Tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-sm">
+                        {filteredAdmissions.map((app) => {
+                          const statusCfg = ADMISSION_STATUS_LABELS[app.status] || {
+                            label: app.status,
+                            color: 'text-slate-700',
+                            bg: 'bg-slate-100',
+                            border: 'border-slate-200',
+                          };
+
+                          return (
+                            <tr key={app.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-4 px-4 font-mono font-bold text-emerald-700">
+                                {app.code}
+                                <span className="block text-[11px] font-sans font-normal text-slate-400">
+                                  {new Date(app.submittedAt).toLocaleDateString('vi-VN')}
+                                </span>
+                              </td>
+                              <td className="py-4 px-4">
+                                <div className="font-bold text-slate-900">{app.studentInfo.fullName}</div>
+                                <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${app.studentInfo.gender === 'nam' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                                    {app.studentInfo.gender === 'nam' ? 'Nam' : 'Nữ'}
+                                  </span>
+                                  <span>{app.studentInfo.dateOfBirth}</span>
+                                </div>
+                              </td>
+                              <td className="py-4 px-4">
+                                <div className="font-medium text-slate-800">
+                                  {app.parentInfo.fullName} ({app.parentInfo.relationship})
+                                </div>
+                                <div className="text-xs text-slate-500 font-mono mt-0.5">
+                                  📞 {app.parentInfo.phone}
+                                </div>
+                              </td>
+                              <td className="py-4 px-4">
+                                <span className="inline-block font-semibold text-slate-900">
+                                  {app.gradeTarget}
+                                </span>
+                                <span className="block text-xs text-slate-500 truncate max-w-[180px]">
+                                  {app.branchName}
+                                </span>
+                                <span className="inline-block text-[11px] font-medium text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded mt-0.5">
+                                  {app.programName}
+                                </span>
+                              </td>
+                              <td className="py-4 px-4">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                                    📁 {app.documents.length} tệp
+                                  </span>
+                                  {app.documents.every((d) => d.verified) ? (
+                                    <span className="text-xs text-emerald-600 font-bold" title="Tất cả giấy tờ đã thẩm định">
+                                      ✓ Đủ
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-amber-600 font-medium" title="Có giấy tờ chưa thẩm định">
+                                      ⏳ Chờ
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-4 px-4">
+                                <select
+                                  value={app.status}
+                                  onChange={(e) => handleUpdateStatus(app.id, e.target.value as AdmissionStatus)}
+                                  className={`text-xs font-bold px-2.5 py-1.5 rounded-lg border focus:outline-none transition-colors cursor-pointer ${statusCfg.bg} ${statusCfg.color} ${statusCfg.border}`}
+                                >
+                                  <option value="HO_SO_MOI">Hồ Sơ Mới Nộp</option>
+                                  <option value="HEN_PHONG_VAN">Hẹn Phỏng Vấn / ĐGNL</option>
+                                  <option value="DA_TRUNG_TUYEN">Đã Trúng Tuyển</option>
+                                  <option value="HOAN_TAT_HOC_PHI">Đã Nhập Học (Hoàn Tất)</option>
+                                  <option value="TU_CHOI">Từ Chối / Rút Hồ Sơ</option>
+                                </select>
+                              </td>
+                              <td className="py-4 px-4 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedAdmission(app)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition-colors"
+                                >
+                                  <span>Thẩm Định</span>
+                                  <span>➔</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Admission Review Modal */}
+                {selectedAdmission && (
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={() => setSelectedAdmission(null)}
+                  >
+                    <div
+                      className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Modal Header */}
+                      <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex items-center justify-between z-10">
+                        <div className="flex items-center gap-3">
+                          <span className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg font-bold">
+                            🎓
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-emerald-700 text-sm">
+                                {selectedAdmission.code}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${ADMISSION_STATUS_LABELS[selectedAdmission.status]?.bg} ${ADMISSION_STATUS_LABELS[selectedAdmission.status]?.color}`}>
+                                {ADMISSION_STATUS_LABELS[selectedAdmission.status]?.label}
+                              </span>
+                            </div>
+                            <h4 className="text-lg font-extrabold text-slate-900">
+                              Hồ Sơ: {selectedAdmission.studentInfo.fullName}
+                            </h4>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAdmission(null)}
+                          className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center font-bold"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Modal Body - 4 Steps Inspection */}
+                      <div className="p-6 space-y-6">
+                        {/* 1. Student Info */}
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                            <span>1️⃣</span> Thông Tin Thí Sinh
+                          </h5>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                            <div>
+                              <span className="text-slate-400 block">Họ và tên:</span>
+                              <strong className="text-slate-800 text-sm">{selectedAdmission.studentInfo.fullName}</strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block">Ngày sinh:</span>
+                              <strong className="text-slate-800 text-sm">{selectedAdmission.studentInfo.dateOfBirth}</strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block">Giới tính:</span>
+                              <strong className="text-slate-800 text-sm">{selectedAdmission.studentInfo.gender === 'nam' ? 'Nam' : 'Nữ'}</strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block">Trường đang học:</span>
+                              <strong className="text-slate-800 text-sm">{selectedAdmission.studentInfo.currentSchool}</strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2. Parent Info */}
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                            <span>2️⃣</span> Thông Tin Phụ Huynh / Người Giám Hộ
+                          </h5>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                            <div>
+                              <span className="text-slate-400 block">Phụ huynh:</span>
+                              <strong className="text-slate-800 text-sm">
+                                {selectedAdmission.parentInfo.fullName} ({selectedAdmission.parentInfo.relationship})
+                              </strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block">Số điện thoại:</span>
+                              <strong className="text-slate-800 text-sm font-mono">{selectedAdmission.parentInfo.phone}</strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block">Email:</span>
+                              <strong className="text-slate-800 text-sm">{selectedAdmission.parentInfo.email}</strong>
+                            </div>
+                            <div className="sm:col-span-3">
+                              <span className="text-slate-400 block">Địa chỉ thường trú:</span>
+                              <span className="text-slate-800 font-medium">{selectedAdmission.parentInfo.address}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 3. Uploaded Documents */}
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                            <span>3️⃣</span> Tài Liệu & Giấy Tờ Đính Kèm ({selectedAdmission.documents.length})
+                          </h5>
+                          <div className="space-y-2.5">
+                            {selectedAdmission.documents.map((doc) => (
+                              <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-lg">📄</span>
+                                  <div>
+                                    <span className="font-semibold text-xs text-slate-800 block">{doc.name}</span>
+                                    <span className="text-[11px] text-slate-400 font-mono">{doc.type}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updatedDocs = selectedAdmission.documents.map((d) =>
+                                        d.id === doc.id ? { ...d, verified: !d.verified } : d
+                                      );
+                                      setSelectedAdmission({ ...selectedAdmission, documents: updatedDocs });
+                                      setAdmissions((prev) =>
+                                        prev.map((a) =>
+                                          a.id === selectedAdmission.id ? { ...a, documents: updatedDocs } : a
+                                        )
+                                      );
+                                    }}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                                      doc.verified
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : 'bg-amber-100 text-amber-800'
+                                    }`}
+                                  >
+                                    {doc.verified ? '✓ Đã Thẩm Định' : '⏳ Chưa Thẩm Định'}
+                                  </button>
+                                  <a
+                                    href={doc.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1 rounded text-slate-400 hover:text-slate-700"
+                                    title="Xem tệp"
+                                  >
+                                    ↗
+                                  </a>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 4. Decision & Status Update Form */}
+                        <div className="p-4 rounded-2xl border-2 border-emerald-500/20 bg-emerald-50/30 space-y-4">
+                          <h5 className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                            <span>4️⃣</span> Kết Quả Xét Duyệt & Cập Nhật Quy Trình
+                          </h5>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                            <div>
+                              <label className="font-bold text-slate-700 block mb-1">
+                                Trạng thái phê duyệt:
+                              </label>
+                              <select
+                                value={selectedAdmission.status}
+                                onChange={(e) => {
+                                  const val = e.target.value as AdmissionStatus;
+                                  setSelectedAdmission({ ...selectedAdmission, status: val });
+                                }}
+                                className="w-full p-2 rounded-xl border border-slate-300 font-semibold bg-white text-xs"
+                              >
+                                <option value="HO_SO_MOI">Hồ Sơ Mới Nộp</option>
+                                <option value="HEN_PHONG_VAN">Hẹn Phỏng Vấn / ĐGNL</option>
+                                <option value="DA_TRUNG_TUYEN">Đã Trúng Tuyển</option>
+                                <option value="HOAN_TAT_HOC_PHI">Đã Nhập Học (Hoàn Tất)</option>
+                                <option value="TU_CHOI">Từ Chối / Rút Hồ Sơ</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="font-bold text-slate-700 block mb-1">
+                                Lịch hẹn phỏng vấn / Khảo sát ĐGNL:
+                              </label>
+                              <input
+                                type="text"
+                                value={selectedAdmission.interviewDate || ''}
+                                onChange={(e) =>
+                                  setSelectedAdmission({ ...selectedAdmission, interviewDate: e.target.value })
+                                }
+                                placeholder="Ví dụ: 15/09/2026 09:00"
+                                className="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-2">
+                              <label className="font-bold text-slate-700 block mb-1">
+                                Nhận xét đánh giá năng lực & Phỏng vấn:
+                              </label>
+                              <input
+                                type="text"
+                                value={selectedAdmission.interviewNotes || ''}
+                                onChange={(e) =>
+                                  setSelectedAdmission({ ...selectedAdmission, interviewNotes: e.target.value })
+                                }
+                                placeholder="Ghi chú điểm test tư duy, năng lực ngoại ngữ, tâm lý..."
+                                className="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer pt-2">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedAdmission.feePaid}
+                                  onChange={(e) =>
+                                    setSelectedAdmission({ ...selectedAdmission, feePaid: e.target.checked })
+                                  }
+                                  className="w-4 h-4 text-emerald-600 rounded"
+                                />
+                                <span>Đã hoàn tất đóng học phí / Phí ghi danh</span>
+                              </label>
+                            </div>
+
+                            {selectedAdmission.feePaid && (
+                              <div>
+                                <label className="font-bold text-slate-700 block mb-1">
+                                  Số tiền học phí đã thu (VNĐ):
+                                </label>
+                                <input
+                                  type="number"
+                                  value={selectedAdmission.feeAmount || 0}
+                                  onChange={(e) =>
+                                    setSelectedAdmission({ ...selectedAdmission, feeAmount: Number(e.target.value) })
+                                  }
+                                  className="w-full p-2 rounded-xl border border-slate-300 text-xs bg-white font-mono"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Modal Footer */}
+                      <div className="sticky bottom-0 bg-slate-50 px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 z-10">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAdmission(null)}
+                          className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold text-xs"
+                        >
+                          Đóng
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdmissions((prev) =>
+                              prev.map((a) => (a.id === selectedAdmission.id ? selectedAdmission : a))
+                            );
+                            setSelectedAdmission(null);
+                          }}
+                          className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all"
+                        >
+                          💾 Lưu Cập Nhật Hồ Sơ
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* TAB 5: THEME CUSTOMIZER */}
         {activeTab === 'theme' && (

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { BlockRegistry } from '@school-cms/cms';
+import { DEFAULT_TRANSLATIONS, TranslationItem } from '@school-cms/shared';
 import '@school-cms/blocks';
 
 interface BlockItem {
@@ -41,7 +42,7 @@ interface AuditItem {
   userName: string;
   userRole: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'PUBLISH' | 'STATUS_CHANGE' | 'EXPORT';
-  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'THEME' | 'FORM' | 'MENU';
+  entityType: 'PAGE' | 'ARTICLE' | 'BRANCH' | 'LEAD' | 'THEME' | 'FORM' | 'MENU' | 'TRANSLATION';
   entityTitle: string;
   details?: string;
 }
@@ -60,7 +61,7 @@ export default function AdminDashboard() {
   // Current user role switcher for testing RBAC
   const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'audit' | 'analytics' | 'menus'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'audit' | 'analytics' | 'menus' | 'i18n'>('pages');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Page state
@@ -242,6 +243,16 @@ export default function AdminDashboard() {
   const [newMenuTitle, setNewMenuTitle] = useState('');
   const [newMenuUrl, setNewMenuUrl] = useState('');
   const [newMenuTarget, setNewMenuTarget] = useState<'_self' | '_blank'>('_self');
+
+  // Multi-Language (i18n) Translations state
+  const [translations, setTranslations] = useState<TranslationItem[]>(DEFAULT_TRANSLATIONS);
+  const [translationSearch, setTranslationSearch] = useState('');
+  const [translationCategory, setTranslationCategory] = useState<string>('all');
+  const [showAddTranslationModal, setShowAddTranslationModal] = useState(false);
+  const [newTransKey, setNewTransKey] = useState('');
+  const [newTransVi, setNewTransVi] = useState('');
+  const [newTransEn, setNewTransEn] = useState('');
+  const [newTransCategory, setNewTransCategory] = useState<'nav' | 'admissions' | 'common' | 'search' | 'footer'>('common');
 
   // Modals
   const [showAddBranchModal, setShowAddBranchModal] = useState(false);
@@ -461,6 +472,70 @@ export default function AdminDashboard() {
     showToast('Đã cập nhật thứ tự liên kết menu');
   };
 
+  const handleExportLeadsToCsv = () => {
+    // Generate CSV content with UTF-8 BOM so Vietnamese diacritics render perfectly in Microsoft Excel
+    const headers = ['Mã Hồ Sơ', 'Họ Tên Phụ Huynh', 'Số Điện Thoại', 'Email', 'Họ Tên Học Sinh', 'Cấp Lớp', 'Cơ Sở', 'Ngày Đăng Ký', 'Trạng Thái', 'Số Ghi Chú'];
+    const rows = leads.map(l => [
+      `"${l.id}"`,
+      `"${l.parentName.replace(/"/g, '""')}"`,
+      `"${l.phone}"`,
+      `"${l.email}"`,
+      `"${l.studentName.replace(/"/g, '""')}"`,
+      `"${l.grade}"`,
+      `"${l.branch}"`,
+      `"${l.date}"`,
+      `"${l.status}"`,
+      `"${l.notes.length}"`,
+    ]);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `danh-sach-tuyen-sinh-alpha-school-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    addAuditLog({ action: 'EXPORT', entityType: 'LEAD', entityTitle: 'Danh Sách Hồ Sơ Tuyển Sinh', details: `Xuất tệp CSV thành công (${leads.length} bản ghi)` });
+    showToast(`Đã xuất ${leads.length} hồ sơ ra tệp CSV Excel thành công!`);
+  };
+
+  const handleSaveTranslation = () => {
+    if (!newTransKey.trim() || !newTransVi.trim() || !newTransEn.trim()) return;
+    const cleanKey = newTransKey.trim().toLowerCase().replace(/[^a-z0-9_.]/g, '_');
+    const exists = translations.some(t => t.key === cleanKey);
+    if (exists) {
+      showToast('Mã khóa dịch này đã tồn tại trong từ điển!');
+      return;
+    }
+    const newItem: TranslationItem = {
+      key: cleanKey,
+      vi: newTransVi.trim(),
+      en: newTransEn.trim(),
+      category: newTransCategory,
+    };
+    setTranslations([...translations, newItem]);
+    addAuditLog({ action: 'CREATE', entityType: 'TRANSLATION', entityTitle: `Khóa Dịch: ${cleanKey}`, details: `Thêm bản dịch [vi: "${newItem.vi}", en: "${newItem.en}"]` });
+    setNewTransKey('');
+    setNewTransVi('');
+    setNewTransEn('');
+    setShowAddTranslationModal(false);
+    showToast(`Đã thêm khóa dịch: ${cleanKey}`);
+  };
+
+  const handleUpdateTranslation = (key: string, field: 'vi' | 'en', value: string) => {
+    setTranslations(translations.map(t => t.key === key ? { ...t, [field]: value } : t));
+    addAuditLog({ action: 'UPDATE', entityType: 'TRANSLATION', entityTitle: `Khóa Dịch: ${key}`, details: `Cập nhật trường [${field}] thành: "${value}"` });
+  };
+
+  const handleDeleteTranslation = (key: string) => {
+    setTranslations(translations.filter(t => t.key !== key));
+    addAuditLog({ action: 'DELETE', entityType: 'TRANSLATION', entityTitle: `Khóa Dịch: ${key}`, details: 'Xóa khỏi từ điển đa ngôn ngữ' });
+    showToast(`Đã xóa khóa dịch: ${key}`);
+  };
+
   return (
     <div className="flex h-screen w-full bg-slate-100 overflow-hidden font-sans">
       {/* Toast Notification */}
@@ -552,6 +627,14 @@ export default function AdminDashboard() {
             <span>🔗</span> Quản Lý Menu ({menuItems.length})
           </button>
           <button
+            onClick={() => setActiveTab('i18n')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeTab === 'i18n' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <span>🌐</span> Bản Dịch i18n ({translations.length})
+          </button>
+          <button
             onClick={() => setActiveTab('media')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
               activeTab === 'media' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -634,6 +717,7 @@ export default function AdminDashboard() {
               {activeTab === 'audit' && 'Nhật Ký Kiểm Toán & Giám Sát Hệ Thống (Audit Logs)'}
               {activeTab === 'analytics' && 'Báo Cáo Hiệu Suất Tuyển Sinh & Lưu Lượng (Analytics)'}
               {activeTab === 'menus' && 'Quản Lý Hệ Thống Điều Hướng & Menu (Navigation)'}
+              {activeTab === 'i18n' && 'Quản Lý Bản Dịch Đa Ngôn Ngữ & Từ Điển (i18n Localization)'}
             </h2>
           </div>
 
@@ -986,13 +1070,10 @@ export default function AdminDashboard() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => {
-                      addAuditLog({ action: 'EXPORT', entityType: 'LEAD', entityTitle: 'Danh sách Leads Tuyển sinh', details: 'Xuất file Excel' });
-                      showToast('Đang xuất tệp Excel danh sách hồ sơ tuyển sinh...');
-                    }}
-                    className="px-4 py-2 border border-slate-300 hover:bg-slate-50 rounded-lg text-sm font-medium text-slate-700 flex items-center gap-2"
+                    onClick={handleExportLeadsToCsv}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition-all"
                   >
-                    📥 Xuất Excel
+                    📥 Xuất Excel (CSV UTF-8)
                   </button>
                 </div>
               </div>
@@ -1809,6 +1890,129 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* TAB 11: QUẢN LÝ BẢN DỊCH ĐA NGÔN NGỮ (i18n) */}
+        {activeTab === 'i18n' && (
+          <div className="flex-1 p-8 overflow-y-auto">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Quản Lý Từ Điển & Bản Dịch Đa Ngôn Ngữ (i18n)</h3>
+                  <p className="text-sm text-slate-500">
+                    Tùy biến các nhãn giao diện Tiếng Việt và Tiếng Anh trên toàn hệ thống mà không cần lập trình viên sửa code.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAddTranslationModal(true)}
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2 self-start sm:self-auto"
+                >
+                  ➕ Thêm Khóa Dịch Mới
+                </button>
+              </div>
+
+              {/* Filter & Search Bar */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex-1 w-full relative">
+                  <input
+                    type="text"
+                    placeholder="Tìm theo khóa hoặc nội dung bản dịch..."
+                    value={translationSearch}
+                    onChange={(e) => setTranslationSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                  />
+                  <span className="absolute left-3 top-2.5 text-slate-400">🔍</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 text-xs font-semibold">
+                  {[
+                    { id: 'all', label: 'Tất cả' },
+                    { id: 'nav', label: 'Điều hướng (nav)' },
+                    { id: 'admissions', label: 'Tuyển sinh' },
+                    { id: 'common', label: 'Chung (common)' },
+                    { id: 'search', label: 'Tìm kiếm' },
+                    { id: 'footer', label: 'Chân trang' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setTranslationCategory(cat.id)}
+                      className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-all ${
+                        translationCategory === cat.id
+                          ? 'bg-emerald-700 text-white shadow-sm'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Translation Table */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4">Mã Khóa (Key)</th>
+                      <th className="px-6 py-4">Chuyên Mục</th>
+                      <th className="px-6 py-4">🇻🇳 Bản Dịch Tiếng Việt</th>
+                      <th className="px-6 py-4">🇬🇧 English Translation</th>
+                      <th className="px-6 py-4 text-right">Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {translations
+                      .filter((item) => {
+                        const matchCat = translationCategory === 'all' || item.category === translationCategory;
+                        const matchSearch =
+                          !translationSearch.trim() ||
+                          item.key.toLowerCase().includes(translationSearch.toLowerCase()) ||
+                          item.vi.toLowerCase().includes(translationSearch.toLowerCase()) ||
+                          item.en.toLowerCase().includes(translationSearch.toLowerCase());
+                        return matchCat && matchSearch;
+                      })
+                      .map((item) => (
+                        <tr key={item.key} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-6 py-4 font-mono text-xs text-emerald-800 font-bold">
+                            {item.key}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-mono font-medium">
+                              {item.category}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-medium text-slate-900">
+                            <input
+                              type="text"
+                              value={item.vi}
+                              onChange={(e) => handleUpdateTranslation(item.key, 'vi', e.target.value)}
+                              className="w-full border border-transparent hover:border-slate-300 focus:border-emerald-600 focus:bg-white bg-transparent rounded px-2 py-1 text-sm transition-all focus:outline-none"
+                            />
+                          </td>
+                          <td className="px-6 py-4 font-medium text-slate-900">
+                            <input
+                              type="text"
+                              value={item.en}
+                              onChange={(e) => handleUpdateTranslation(item.key, 'en', e.target.value)}
+                              className="w-full border border-transparent hover:border-slate-300 focus:border-emerald-600 focus:bg-white bg-transparent rounded px-2 py-1 text-sm transition-all focus:outline-none"
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => handleDeleteTranslation(item.key)}
+                              className="text-slate-400 hover:text-red-600 p-1.5 rounded transition-colors text-sm"
+                              title="Xóa khóa dịch"
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL: Thêm Cơ Sở Mới */}
@@ -1977,6 +2181,75 @@ export default function AdminDashboard() {
                 className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 shadow-sm"
               >
                 Lưu Liên Kết
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Thêm Bản Dịch Mới */}
+      {showAddTranslationModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Thêm Khóa Dịch Đa Ngôn Ngữ</h3>
+            <div className="space-y-4 text-sm">
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">Mã Khóa (Key ID)</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: nav.tuition hoặc admissions.fee"
+                  value={newTransKey}
+                  onChange={(e) => setNewTransKey(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">Chuyên Mục</label>
+                <select
+                  value={newTransCategory}
+                  onChange={(e) => setNewTransCategory(e.target.value as any)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                >
+                  <option value="nav">Điều hướng (nav)</option>
+                  <option value="admissions">Tuyển sinh (admissions)</option>
+                  <option value="common">Chung (common)</option>
+                  <option value="search">Tìm kiếm (search)</option>
+                  <option value="footer">Chân trang (footer)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">🇻🇳 Nội Dung Tiếng Việt</label>
+                <input
+                  type="text"
+                  placeholder="Nhập chuỗi tiếng Việt..."
+                  value={newTransVi}
+                  onChange={(e) => setNewTransVi(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">🇬🇧 English Content</label>
+                <input
+                  type="text"
+                  placeholder="Enter English string..."
+                  value={newTransEn}
+                  onChange={(e) => setNewTransEn(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowAddTranslationModal(false)}
+                className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveTranslation}
+                className="px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 shadow-sm"
+              >
+                Lưu Khóa Dịch
               </button>
             </div>
           </div>

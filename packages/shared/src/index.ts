@@ -5,3 +5,4 @@ export * from './branch';
 export * from './article';
 export * from './form';
 export * from './page';
+export * from './i18n';

@@ -8,6 +8,7 @@ import {
   UserContext,
 } from '@school-cms/auth';
 import { initialSeedData } from '@school-cms/database';
+import { DEFAULT_TRANSLATIONS, translate } from '@school-cms/shared';
 
 async function runTestSuite() {
   console.log('====================================================');
@@ -121,6 +122,50 @@ async function runTestSuite() {
     assert.ok(branchSlugs.includes('bien-hoa'));
     assert.ok(branchSlugs.includes('thu-duc'));
     assert.ok(branchSlugs.includes('binh-duong'));
+  });
+
+  // 4. MULTI-LANGUAGE (i18n) & CRM EXPORT ENGINE
+  console.log('\n--- 4. Multi-Language (i18n) & CRM Export Engine ---');
+
+  it('DEFAULT_TRANSLATIONS dictionary contains valid bilingual keys and fallback', () => {
+    assert.ok(DEFAULT_TRANSLATIONS.length >= 15, 'Must have at least 15 translation items');
+    for (const item of DEFAULT_TRANSLATIONS) {
+      assert.ok(item.key.length > 0, 'Key must not be empty');
+      assert.ok(item.vi.length > 0, `Vietnamese translation for ${item.key} must not be empty`);
+      assert.ok(item.en.length > 0, `English translation for ${item.key} must not be empty`);
+    }
+
+    // Verify translate helper
+    assert.strictEqual(translate('nav.home', 'vi'), 'Trang Chủ');
+    assert.strictEqual(translate('nav.home', 'en'), 'Home');
+    assert.strictEqual(translate('non.existent.key', 'vi'), 'non.existent.key');
+  });
+
+  it('Lead CRM Export generates properly encoded and delimited CSV structure', () => {
+    const mockLeads = [
+      { id: 'lead-001', parentName: 'Trần Văn An', phone: '0912 345 678', email: 'an.tran@example.com', studentName: 'Trần Minh Khang', grade: 'Lớp 1', branch: 'Cơ sở Biên Hòa', date: '05/09/2026 14:30', status: 'Mới', notes: [] },
+      { id: 'lead-002', parentName: 'Nguyễn Thị Mai', phone: '0988 765 432', email: 'mai.nguyen@example.com', studentName: 'Nguyễn Tuấn Anh', grade: 'Mầm non', branch: 'Cơ sở TP. Thủ Đức', date: '05/09/2026 11:15', status: 'Đang tư vấn', notes: [{ text: 'Ghi chú', author: 'Admin', date: '05/09/2026' }] },
+    ];
+
+    const headers = ['Mã Hồ Sơ', 'Họ Tên Phụ Huynh', 'Số Điện Thoại', 'Email', 'Họ Tên Học Sinh', 'Cấp Lớp', 'Cơ Sở', 'Ngày Đăng Ký', 'Trạng Thái', 'Số Ghi Chú'];
+    const rows = mockLeads.map(l => [
+      `"${l.id}"`,
+      `"${l.parentName.replace(/"/g, '""')}"`,
+      `"${l.phone}"`,
+      `"${l.email}"`,
+      `"${l.studentName.replace(/"/g, '""')}"`,
+      `"${l.grade}"`,
+      `"${l.branch}"`,
+      `"${l.date}"`,
+      `"${l.status}"`,
+      `"${l.notes.length}"`,
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    assert.ok(csvContent.startsWith('\uFEFF'), 'CSV must start with UTF-8 BOM for Microsoft Excel compatibility');
+    assert.ok(csvContent.includes('"Trần Văn An"'), 'Row values must be quoted');
+    assert.ok(csvContent.includes('"Cơ sở Biên Hòa"'), 'Vietnamese accents must be preserved');
+    assert.strictEqual(csvContent.split('\r\n').length, 3, 'CSV must have 1 header line + 2 data rows');
   });
 
   console.log('\n====================================================');

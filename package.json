@@ -12,7 +12,9 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "db:generate": "turbo run db:generate",
     "db:push": "turbo run db:push",
-    "db:seed": "pnpm --filter @school-cms/api exec tsx -e \"import { runDatabaseSeed } from '@school-cms/database'; runDatabaseSeed();\""
+    "db:seed": "pnpm --filter @school-cms/api exec tsx -e \"import { runDatabaseSeed } from '@school-cms/database'; runDatabaseSeed();\"",
+    "release:check": "bash scripts/release-check.sh",
+    "release:check:win": "powershell -ExecutionPolicy Bypass -File scripts/release-check.ps1"
   },
   "devDependencies": {
     "prettier": "^3.3.3",

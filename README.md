@@ -5,6 +5,8 @@
 [![Fastify](https://img.shields.io/badge/Fastify-v4-000000?logo=fastify)](https://fastify.dev/)
 [![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)](https://www.postgresql.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Tests](https://img.shields.io/badge/Tests-65%2F65%20Passing%20(100%25)-brightgreen)](https://github.com/raphaelbh89-ai/Website)
+[![Release](https://img.shields.io/badge/Release-v1.0.0--enterprise-gold)](https://github.com/raphaelbh89-ai/Website)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 > **School Website Management Framework / Modular CMS / Page Builder** dành cho hệ thống trường học đa cơ sở quy mô lớn (50+ chi nhánh, hàng nghìn bài viết, hàng trăm khối giao diện động, tích hợp CRM tuyển sinh và Trợ lý AI 24/7).
@@ -248,19 +250,27 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 pnpm install
 ```
 
-### Bước 2: Chạy kiểm thử tự động
+### Bước 2: Chạy kiểm thử tự động (65 Tests)
 ```bash
 pnpm test
 ```
-*Kết quả: 60/60 tests passing (BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow, AI Knowledge Base Indexing & Multi-category Chunk Validation, Chatbot Intent Classification & Confidence Scoring Precision, RAG Context Grounding & Strict Citation Attribution, AI Chatbot Query REST API & SSE Streaming Contract, Multi-Campus Knowledge Scoping & Global Inheritance, Multi-Campus Hostname Resolution, Scoped Campus Theming & Fallback, HMAC-SHA256 Signed Preview Links, Preview Security & Tamper Proofing, Page Revision Snapshot Deep Diff Comparator, Payment Transaction Sequential Order Code & Idempotency Key, HMAC-SHA512 Gateway Signature & IPN Checksum Verification, VietQR Napas 247 Payload & Transfer Content Syntax Generator, IPN Webhook Dispatcher & Automated Admission Application Status Progression, Financial Aggregations & Gateway Revenue Metrics, Parent-Student Multi-Child Relationship Scoping Guard, Weighted Subject Scoring, Letter Grade & GPA Calculation Precision, Attendance Records Aggregation & Rate Metrics, Student Academic Summary Aggregator, Parent Portal REST API Suite, PostgreSQL 16 Declarative Partitioning DDL Generation Engine, Partition Router & Multi-Campus Shard Resolution Precision, Partition Pruning Query Planner Simulation & Execution Acceleration, Data Lifecycle Multi-Tier Archival Engine, Database Partitioning & Archival REST API Validation).*
+*Kết quả: **65/65 tests passing (100%)** — Kiểm tra đầy đủ từ BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow, AI Knowledge Base Indexing & Multi-category Chunk Validation, Chatbot Intent Classification & Confidence Scoring Precision, RAG Context Grounding & Strict Citation Attribution, AI Chatbot Query REST API & SSE Streaming Contract, Multi-Campus Knowledge Scoping & Global Inheritance, Multi-Campus Hostname Resolution, Scoped Campus Theming & Fallback, HMAC-SHA256 Signed Preview Links, Preview Security & Tamper Proofing, Page Revision Snapshot Deep Diff Comparator, Payment Transaction Sequential Order Code & Idempotency Key, HMAC-SHA512 Gateway Signature & IPN Checksum Verification, VietQR Napas 247 Payload & Transfer Content Syntax Generator, IPN Webhook Dispatcher & Automated Admission Application Status Progression, Financial Aggregations & Gateway Revenue Metrics, Parent-Student Multi-Child Relationship Scoping Guard, Weighted Subject Scoring, Letter Grade & GPA Calculation Precision, Attendance Records Aggregation & Rate Metrics, Student Academic Summary Aggregator, Parent Portal REST API Suite, PostgreSQL 16 Declarative Partitioning DDL Generation Engine, Partition Router & Multi-Campus Shard Resolution Precision, Partition Pruning Query Planner Simulation & Execution Acceleration, Data Lifecycle Multi-Tier Archival Engine, Database Partitioning & Archival REST API Validation, Enterprise Security Headers & OWASP CSP Policy Engine, Production Secret Isolation & Cryptographic Entropy Validation, Multi-Service Health & Container Readiness Telemetry Contract, Disaster Recovery Backup Package Integrity & SHA-256 Checksums, Monorepo Golden Master Handover Contract (v1.0.0-enterprise).*
 
+### Bước 3: Kiểm tra 5 cổng nghiệm thu phát hành (Release Gate Verifier)
+```bash
+# Trên Windows PowerShell:
+pnpm release:check:win
 
-### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu
+# Trên Linux / macOS / Bash:
+pnpm release:check
+```
+
+### Bước 4: Kiểm tra tính toàn vẹn kiểu dữ liệu
 ```bash
 pnpm -r typecheck
 ```
 
-### Bước 4: Khởi động hệ thống đồng thời
+### Bước 5: Khởi động môi trường phát triển (Development)
 ```bash
 pnpm dev
 ```
@@ -272,20 +282,25 @@ Hệ thống sẽ chạy trên các cổng:
 
 ---
 
-## 🐳 Triển Khai Bằng Docker Compose
+## 🐳 Triển Khai Thực Tế Môi Trường Sản Xuất (Production Multi-Container)
 
-Hạ tầng sẵn sàng cho môi trường Production chỉ với một lệnh:
+Hệ thống hỗ trợ cụm 7 container production tối ưu hóa cho doanh nghiệp qua `docker-compose.prod.yml`:
 
 ```bash
-docker compose up -d --build
+# Khởi động cụm dịch vụ sản xuất với Nginx, Postgres 16, Redis 7, API, Web, Admin & Automated Backup
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 Container bao gồm:
-- `postgres`: PostgreSQL 16 Alpine (Port 5432)
-- `redis`: Redis 7 Alpine (Port 6379)
-- `api`: Fastify Backend (Port 4000)
-- `web`: Next.js Public Web (Port 3000)
-- `admin`: Next.js Admin (Port 3001)
+- `postgres`: PostgreSQL 16 Alpine với memory tuning, 24 phân vùng CSDL (Port nội bộ 5432)
+- `redis`: Redis 7 Alpine với mật khẩu bảo vệ & LRU eviction (Port nội bộ 6379)
+- `api`: Fastify Backend Cluster (Port 4000)
+- `web`: Next.js Public Web Standalone (Port 3000)
+- `admin`: Next.js Admin CMS Dashboard (Port 3000)
+- `nginx`: Nginx 1.25 Alpine Reverse Proxy & Load Balancer, SSL termination, OWASP Security Headers (Port 80/443)
+- `db-backup`: Dịch vụ chạy cron tự động nén CSDL gzip + SHA-256 định kỳ hàng ngày
+
+*Xem hướng dẫn vận hành chi tiết tại: [docs/14-production-deployment-runbook.md](docs/14-production-deployment-runbook.md).*
 
 Kiểm tra trạng thái hệ thống:
 ```bash

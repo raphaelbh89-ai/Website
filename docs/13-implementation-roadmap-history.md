@@ -1,10 +1,10 @@
 # Lịch Sử Triển Khai Chi Tiết Các Phase (Implementation History & Changelog)
 
-Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alpha School Website Management Framework / Modular CMS / Page Builder** từ Phase 1 đến Phase 24, kèm danh sách file thay đổi và mã băm Git Commit tương ứng đã được push lên GitHub repository: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git).
+Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alpha School Website Management Framework / Modular CMS / Page Builder** từ Phase 1 đến Phase 25, kèm danh sách file thay đổi và mã băm Git Commit tương ứng đã được push lên GitHub repository: [https://github.com/raphaelbh89-ai/Website.git](https://github.com/raphaelbh89-ai/Website.git).
 
 ---
 
-## 📋 Bảng Tổng Hợp 24 Phase
+## 📋 Bảng Tổng Hợp 25 Phase (100% Hoàn Thành)
 
 | Phase | Tên Giai Đoạn & Nội Dung Cốt Lõi | Trạng Thái | Commit Hash |
 |---|---|---|---|
@@ -32,6 +32,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 22** | Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN & 50 Tests | Hoàn thành | `77fec7a` |
 | **Phase 23** | Cổng Phụ Huynh & Sổ Liên Lạc Điện Tử `@school-cms/portal`, Scoping Guard, Điểm Danh & 55 Tests | Hoàn thành | `55ea9a0` |
 | **Phase 24** | Phân Vùng CSDL Database Partitioning, Cắt Tỉa Truy Vấn & Vòng Đời Lưu Trữ 50 Cơ Sở & 60 Tests | Hoàn thành | `73f2074` |
+| **Phase 25** | Đóng Gói Multi-Container Production, OWASP Security Headers, Runbook Vận Hành & 65 Tests (Golden Master Release) | Hoàn thành | `v1.0.0` |
 
 ---
 
@@ -365,6 +366,40 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
     - Modal: **Cấp Phát Phân Vùng Cho Cơ Sở Mới** với live SQL DDL generator.
   - `apps/api/src/__tests__/test-runner.ts`:
     - Bổ sung Section 21 với 5 bài kiểm thử tự động chuyên sâu (Tests 56 - 60) nâng tổng số lên **60 tests passing 100%**.
+
+---
+
+### Phase 25: Production Hardening, Multi-Container Orchestration, E2E Release Verification & 65 Tests (Golden Master Release)
+- **Mục tiêu**: Đóng gói toàn diện hệ thống ở cấp độ doanh nghiệp (v1.0.0-enterprise), thiết lập hạ tầng container sản xuất, cấu hình Nginx Reverse Proxy bảo mật OWASP, tự động hóa quy trình sao lưu CSDL nén gzip kèm mã băm SHA-256, soạn thảo sổ tay vận hành SRE chi tiết và mở rộng bộ kiểm thử lên 65/65 tests.
+- **Tệp tin**:
+  - `docker-compose.prod.yml`:
+    - Cụm multi-container production 7 dịch vụ: `postgres` (PostgreSQL 16 Alpine với memory tuning), `redis` (Redis 7 Alpine với auth & LRU eviction), `api` (Fastify API Cluster), `web` (Next.js 14 SSR/SSG), `admin` (Next.js 14 CMS Dashboard), `nginx` (Reverse Proxy & Load Balancer), `db-backup` (Automated Daily Cron Backup).
+    - Phân tách mạng nội bộ (`internal_network`) và mạng công cộng (`public_network`) bảo đảm an toàn CSDL.
+  - `deploy/nginx/nginx.conf`:
+    - Cấu hình Nginx phân luồng traffic: `/api/` -> `api:4000`, `/admin/` -> `admin:3000`, `/` -> `web:3000`.
+    - Rate limiting đa tầng (100 req/min trang chung, 15 req/min tuyển sinh, 10 req/min thanh toán).
+    - Nén Gzip đa định dạng và lưu đệm tệp tĩnh Next.js 1 năm (`max-age=31536000, immutable`).
+    - Hỗ trợ giao thức WebSocket và Server-Sent Events (SSE) không đệm cho AI Chatbot.
+  - `deploy/nginx/security-headers.conf`:
+    - Bộ Header bảo mật chuẩn OWASP: `X-Frame-Options: SAMEORIGIN` (chống Clickjacking), `X-Content-Type-Options: nosniff`, `Strict-Transport-Security: max-age=63072000`, `Referrer-Policy: strict-origin-when-cross-origin`, `Content-Security-Policy (CSP)`, `Permissions-Policy`.
+  - `deploy/backup/backup.sh`:
+    - Shell script sao lưu tự động CSDL: `pg_dump` nén `gzip -9`, tự động sinh mã kiểm định SHA-256 (`.sha256`), tự động dọn dẹp các bản sao lưu cũ quá 14 ngày (`RETENTION_DAYS=14`).
+  - `.env.production.example`:
+    - Bản mẫu cấu hình biến môi trường chuẩn doanh nghiệp với hướng dẫn tạo chuỗi khóa bí mật ngẫu nhiên (Entropy >= 64 ký tự cho JWT/HMAC).
+  - `docs/14-production-deployment-runbook.md`:
+    - Sổ tay vận hành và triển khai thực tế môi trường sản xuất chi tiết: Sơ đồ kiến trúc hạ tầng Cloudflare + Nginx + Docker, yêu cầu phần cứng máy chủ, hướng dẫn cài đặt từng bước, quy trình cập nhật không gián đoạn (Zero-Downtime Rolling Update), phục hồi thảm họa (Disaster Recovery PITR), giám sát sức khỏe qua `/api/v1/health`, kịch bản xử lý sự cố khẩn cấp (OOM, DB Starvation, 10,000 CCU Admissions Spike), và biên bản bàn giao Golden Master.
+  - `scripts/release-check.ps1` (PowerShell) & `scripts/release-check.sh` (Bash):
+    - Công cụ kiểm tra 5 cổng nghiệm thu phát hành (Release Gate Verifier): Strict TypeScript Monorepo Typecheck, 65 Automated Tests, Kiểm tra tính toàn vẹn biến môi trường, Kiểm tra cấu hình Docker/Nginx/Backup, Đồng bộ tài liệu 25 Phase.
+  - `package.json`:
+    - Bổ sung lệnh `release:check` và `release:check:win`.
+  - `apps/api/src/__tests__/test-runner.ts`:
+    - Bổ sung Section 22 với 5 bài kiểm thử nghiệm thu phát hành (Tests 61 - 65):
+      - Test 61: Enterprise Security Headers & Content-Security-Policy (CSP) Policy Engine.
+      - Test 62: Production Environment Secret Isolation & Cryptographic Entropy Validation.
+      - Test 63: Multi-Service Health & Container Readiness Telemetry Contract.
+      - Test 64: Disaster Recovery, Backup Package Integrity & Cryptographic Checksums.
+      - Test 65: Monorepo Golden Master Handover Contract (v1.0.0-enterprise).
+    - Nâng tổng số kiểm thử tự động toàn hệ thống lên **65 tests passing 100%**.
 
 ---
 

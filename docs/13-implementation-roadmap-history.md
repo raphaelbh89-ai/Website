@@ -182,7 +182,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/web/src/app/page.tsx`: Trưng bày đầy đủ 16 khối chuẩn tuần tự từ 1 đến 16 trên cổng thông tin công cộng.
   - `apps/api/src/__tests__/test-runner.ts`: Mở rộng bộ kiểm thử tự động lên **35 tests** passing 100%.
 
-### Phase 20: AI Chatbot Sổ Tay Tri Thức Tuyển Sinh RAG, REST Streaming API & 40 Tests
+### Phase 20: AI Chatbot Sổ Tay Tri Thức Tuyển Sinh RAG, REST Streaming API & 40 Tests (Commit: a5b9637)
 - **Tệp tin**:
   - `packages/ai-chatbot/`: Package mới độc lập `@school-cms/ai-chatbot` tuân thủ nguyên lý kiến trúc Decoupled quy định tại `docs/11-extensibility.md` mục 11.4:
     - `src/schema.ts`: Định nghĩa mô hình tri thức `KnowledgeSource`, 6 danh mục chủ đề (`KnowledgeCategory`), 6 ý định phân loại (`ChatbotIntent`), `BotMessage`, `BotConversation`, `BotCitation`, và schema kiểm định yêu cầu/phản hồi Zod.

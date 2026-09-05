@@ -1,6 +1,8 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import './globals.css';
+import { AiChatbotWidget } from '../components/AiChatbotWidget';
+import { SearchModal } from '../components/SearchModal';
 
 export const metadata: Metadata = {
   title: 'Hệ thống Trường Quốc tế Song ngữ Alpha School',
@@ -24,10 +26,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen antialiased flex flex-col">
         {/* Header Navigation */}
-        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200">
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
           <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
             <a href="/" className="flex items-center gap-3">
-              <span className="w-10 h-10 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-bold text-xl">
+              <span className="w-10 h-10 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-bold text-xl shadow-sm">
                 A
               </span>
               <div>
@@ -38,11 +40,21 @@ export default function RootLayout({
               </div>
             </a>
 
-            <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-700">
+            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-700">
               <a href="/" className="hover:text-emerald-700 transition-colors">Trang chủ</a>
               <a href="/co-so/bien-hoa" className="hover:text-emerald-700 transition-colors">Cơ sở Biên Hòa</a>
               <a href="/chuong-trinh-hoc" className="hover:text-emerald-700 transition-colors">Chương trình học</a>
               <a href="/tin-tuc" className="hover:text-emerald-700 transition-colors">Tin tức</a>
+              
+              {/* Search Component */}
+              <SearchModal />
+
+              {/* Language Switcher */}
+              <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden text-xs font-bold text-slate-600">
+                <span className="px-2 py-1 bg-emerald-700 text-white cursor-pointer">VI</span>
+                <span className="px-2 py-1 hover:bg-slate-100 cursor-pointer">EN</span>
+              </div>
+
               <a href="/tuyen-sinh" className="px-5 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold transition-all shadow-sm">
                 Tuyển sinh 2025
               </a>
@@ -51,6 +63,9 @@ export default function RootLayout({
         </header>
 
         {children}
+
+        {/* AI Admissions Advisor Floating Chatbot */}
+        <AiChatbotWidget />
 
         {/* Footer */}
         <footer className="bg-slate-900 text-white py-12 border-t border-slate-800 mt-auto">

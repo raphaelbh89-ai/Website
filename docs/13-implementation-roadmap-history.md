@@ -202,6 +202,24 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/api/src/__tests__/test-runner.ts`:
     - Bổ sung 5 bài kiểm thử tự động chuyên sâu (Tests 36 - 40) nâng tổng số lên **40 tests passing 100%**.
 
+### Phase 21: Đa Cơ Sở Hybrid Subdomain Routing, Scoped Theming, Xem Trước Bản Thảo HMAC & Visual Diff So Sánh Bản Sửa Đổi (45 Tests)
+- **Tệp tin**:
+  - `packages/theme/src/campus.ts`: Bộ token nhận diện thương hiệu riêng biệt cho 3 cơ sở (`CAMPUS_THEMES`: Biên Hòa `#047857`, Thủ Đức `#1d4ed8`, Cầu Giấy `#b91c1c`), bộ phân giải token `getCampusThemeTokens()`, và bộ phân giải tên miền/subdomain `resolveCampusFromHost()`.
+  - `packages/theme/src/index.ts`: Re-export toàn diện các tiện ích theming và routing cơ sở.
+  - `packages/cms/src/preview.ts`: Động cơ ký số bảo mật HMAC-SHA256 chuẩn isomorphic (`generatePreviewToken`, `verifyPreviewToken`), sinh link xem trước có thời hạn (URL có chữ ký thời hạn 24h) dành cho Ban Giám Hiệu / Hội đồng Quản trị kiểm duyệt bản thảo mà không cần tài khoản CMS admin, bảo vệ chống giả mạo bằng thuật toán constant-time so sánh an toàn.
+  - `packages/cms/src/diff.ts`: Động cơ so sánh trực quan Snapshot bản sửa đổi trang (`comparePageRevisions`), phân tích sâu các khối Added, Removed, Modified (so sánh từng thuộc tính cấu hình JSON), và Unchanged.
+  - `packages/cms/src/index.ts`: Re-export `preview` và `diff`.
+  - `apps/web/src/middleware.ts`: Next.js Edge Middleware tự động phát hiện Hostname (`bienhoa.school.edu.vn`, `truongbienhoa.edu.vn`, v.v.), gắn header `x-school-branch-slug` và điều hướng rewrite trong suốt tới `/co-so/${branchSlug}`.
+  - `apps/web/src/app/co-so/[branchSlug]/page.tsx`: Cổng thông tin chuyên biệt cho từng cơ sở, tiêm biến CSS `--color-primary`, `--color-accent` cục bộ vào style container và hiển thị banner thương hiệu riêng biệt.
+  - `apps/web/src/app/preview/pages/[pageId]/page.tsx`: Trang xem trước bản thảo bảo mật, tự động xác thực chữ ký số HMAC và thời hạn token; hiển thị thanh cảnh báo bảo mật trên cùng ("🔒 DRAFT PREVIEW") và render toàn bộ block layout dự thảo bằng `DynamicPageRenderer`.
+  - `apps/api/src/index.ts`: Các REST API endpoints mới:
+    - `GET /api/v1/pages/:id/preview-url`: Sinh link xem trước bảo mật HMAC kèm thời hạn.
+    - `GET /api/v1/pages/:id/diff`: So sánh trực tiếp 2 phiên bản revision bất kỳ và trả về cấu trúc diff chi tiết.
+  - `apps/admin/src/app/page.tsx`:
+    - Nút `🔒 Xem Trước (HMAC)` tại thanh tiêu đề: mở modal sinh link bảo mật, hỗ trợ copy 1-chạm vào clipboard và mở tab mới.
+    - Nút `⚖️ So Sánh Diff` trên thẻ lịch sử phiên bản: mở modal Diff Inspector trực quan với 4 thẻ KPI (+Added, -Removed, ΔModified, =Unchanged) cùng bảng chi tiết từng thuộc tính thay đổi.
+  - `apps/api/src/__tests__/test-runner.ts`: Bổ sung 5 bài kiểm thử tự động chuyên sâu (Tests 41 - 45) nâng tổng số lên **45 tests passing 100%**.
+
 ---
 
 

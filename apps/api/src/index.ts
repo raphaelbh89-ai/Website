@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import { BlockRegistry } from '@school-cms/cms';
+import { BlockRegistry, generatePreviewToken, comparePageRevisions } from '@school-cms/cms';
 import '@school-cms/blocks';
 import {
   ApiResponse,
@@ -1071,6 +1071,68 @@ server.post('/api/v1/pages/:id/rollback', async (req, reply) => {
   return formatSuccessResponse({
     page,
     restoredRevision: targetRev,
+  });
+});
+
+// 7.3 Sinh liên kết xem trước an toàn có chữ ký HMAC-SHA256 (Mobile Executive Preview)
+server.get('/api/v1/pages/:id/preview-url', async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const { revisionId, expiresInSeconds } = req.query as {
+    revisionId?: string;
+    expiresInSeconds?: string;
+  };
+
+  const page = pagesStore.find((p) => p.id === id || p.slug === id);
+  if (!page) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy trang' },
+    });
+  }
+
+  const revId = revisionId || (page.revisions[0] ? page.revisions[0].id : 'rev-draft');
+  const expiresSec = expiresInSeconds ? parseInt(expiresInSeconds, 10) : 86400;
+
+  const previewResult = generatePreviewToken(page.id, revId, { expiresInSeconds: expiresSec });
+
+  return formatSuccessResponse(previewResult);
+});
+
+// 7.4 So sánh trực quan giữa 2 phiên bản bản nháp (Visual Revision Diff)
+server.get('/api/v1/pages/:id/diff', async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const { baseRevisionId, targetRevisionId } = req.query as {
+    baseRevisionId?: string;
+    targetRevisionId?: string;
+  };
+
+  const page = pagesStore.find((p) => p.id === id || p.slug === id);
+  if (!page) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy trang' },
+    });
+  }
+
+  const targetRev = page.revisions.find((r) => r.id === targetRevisionId);
+  const baseRev = page.revisions.find((r) => r.id === baseRevisionId);
+
+  const targetBlocks = targetRev ? targetRev.blocksSnapshot : page.blocks;
+  const baseBlocks = baseRev
+    ? baseRev.blocksSnapshot
+    : page.revisions[1]
+    ? page.revisions[1].blocksSnapshot
+    : [];
+
+  const diffResult = comparePageRevisions(baseBlocks, targetBlocks);
+
+  return formatSuccessResponse({
+    pageId: page.id,
+    baseRevisionId: baseRev?.id || 'previous',
+    targetRevisionId: targetRev?.id || 'current',
+    ...diffResult,
   });
 });
 

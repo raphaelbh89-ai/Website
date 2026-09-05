@@ -1,5 +1,16 @@
 import assert from 'node:assert';
-import { BlockRegistry } from '@school-cms/cms';
+import {
+  BlockRegistry,
+  generatePreviewToken,
+  verifyPreviewToken,
+  comparePageRevisions,
+} from '@school-cms/cms';
+import {
+  CAMPUS_THEMES,
+  getCampusThemeTokens,
+  resolveCampusFromHost,
+  generateCssVariables,
+} from '@school-cms/theme';
 import '@school-cms/blocks';
 import {
   StatisticsSchema,
@@ -56,7 +67,7 @@ import {
   ALL_PERMISSIONS,
 } from '@school-cms/auth';
 import { initialSeedData } from '@school-cms/database';
-import { DEFAULT_TRANSLATIONS, translate } from '@school-cms/shared';
+import { DEFAULT_TRANSLATIONS, translate, defaultDesignTokens } from '@school-cms/shared';
 import {
   buildSchoolJsonLd,
   buildArticleJsonLd,
@@ -1393,6 +1404,212 @@ async function runTestSuite() {
   });
 
 
+
+  // 18. MULTI-CAMPUS SUBDOMAIN ROUTING, SCOPED THEMING, HMAC PREVIEW & VISUAL DIFF ENGINE
+  console.log('\n--- 18. Multi-Campus Routing, Scoped Theming, HMAC Preview & Visual Diff Engine ---');
+
+  it('Multi-Campus Subdomain & Custom Domain Hostname Resolution maps host headers to correct branch slugs', () => {
+    // 1. Subdomains for all campuses
+    assert.strictEqual(resolveCampusFromHost('bienhoa.school.edu.vn'), 'bien-hoa');
+    assert.strictEqual(resolveCampusFromHost('bien-hoa.localhost:3000'), 'bien-hoa');
+    assert.strictEqual(resolveCampusFromHost('thuduc.school.edu.vn'), 'thu-duc');
+    assert.strictEqual(resolveCampusFromHost('thu-duc.localhost:3000'), 'thu-duc');
+    assert.strictEqual(resolveCampusFromHost('caugiay.school.edu.vn'), 'cau-giay');
+    assert.strictEqual(resolveCampusFromHost('cau-giay.school.edu.vn'), 'cau-giay');
+
+    // 2. Custom domains
+    assert.strictEqual(resolveCampusFromHost('truongbienhoa.edu.vn'), 'bien-hoa');
+    assert.strictEqual(resolveCampusFromHost('truongthuduc.edu.vn'), 'thu-duc');
+    assert.strictEqual(resolveCampusFromHost('truongcaugiay.edu.vn'), 'cau-giay');
+
+    // 3. Global roots and fallbacks
+    assert.strictEqual(resolveCampusFromHost('school.edu.vn'), null);
+    assert.strictEqual(resolveCampusFromHost('localhost:3000'), null);
+    assert.strictEqual(resolveCampusFromHost(''), null);
+  });
+
+  it('Campus CSS Variable Scoping & Design Tokens provide distinct branded palettes per campus with global fallback', () => {
+    // 1. Defined Campus Theme palettes
+    assert.strictEqual(CAMPUS_THEMES['bien-hoa'].tokens.colors.primary, '#047857', 'Biên Hòa must use Emerald Green');
+    assert.strictEqual(CAMPUS_THEMES['thu-duc'].tokens.colors.primary, '#1d4ed8', 'Thủ Đức must use Royal Blue');
+    assert.strictEqual(CAMPUS_THEMES['cau-giay'].tokens.colors.primary, '#b91c1c', 'Cầu Giấy must use Crimson Red');
+
+    // 2. Campus theme token retrieval with fallback
+    const bhTokens = getCampusThemeTokens('bien-hoa');
+    assert.strictEqual(bhTokens.colors.primary, '#047857');
+    assert.strictEqual(bhTokens.colors.accent, '#f59e0b');
+
+    const tdTokens = getCampusThemeTokens('thu-duc');
+    assert.strictEqual(tdTokens.colors.primary, '#1d4ed8');
+    assert.strictEqual(tdTokens.colors.accent, '#38bdf8');
+
+    const cgTokens = getCampusThemeTokens('cau-giay');
+    assert.strictEqual(cgTokens.colors.primary, '#b91c1c');
+    assert.strictEqual(cgTokens.colors.accent, '#fbbf24');
+
+    const fallbackTokens = getCampusThemeTokens(null);
+    assert.strictEqual(fallbackTokens.colors.primary, defaultDesignTokens.colors.primary);
+
+    const unknownTokens = getCampusThemeTokens('unknown-branch');
+    assert.strictEqual(unknownTokens.colors.primary, defaultDesignTokens.colors.primary);
+
+    // 3. CSS variable string generation
+    const bhCss = generateCssVariables(bhTokens);
+    assert.ok(bhCss.includes('--color-primary: #047857'));
+    assert.ok(bhCss.includes('--color-accent: #f59e0b'));
+
+    const tdCss = generateCssVariables(tdTokens);
+    assert.ok(tdCss.includes('--color-primary: #1d4ed8'));
+    assert.ok(tdCss.includes('--color-accent: #38bdf8'));
+  });
+
+  it('HMAC-SHA256 Signed Preview Links generate cryptographically secure URLs with configurable expiration', () => {
+    const pageId = 'p-admissions-draft';
+    const revisionId = 'rev-draft-999';
+    const secret = 'test-cms-preview-hmac-secret-2026';
+
+    // 1. Generate preview link
+    const preview = generatePreviewToken(pageId, revisionId, {
+      expiresInSeconds: 7200, // 2 hours
+      secret,
+      baseUrl: 'https://school.edu.vn',
+    });
+
+    assert.strictEqual(preview.pageId, pageId);
+    assert.strictEqual(preview.revisionId, revisionId);
+    assert.ok(preview.expires > Date.now());
+    assert.strictEqual(preview.signature.length, 64, 'SHA256 hex digest must be exactly 64 characters');
+    assert.ok(preview.previewUrl.startsWith('https://school.edu.vn/preview/pages/p-admissions-draft'));
+    assert.ok(preview.previewUrl.includes(`revisionId=${encodeURIComponent(revisionId)}`));
+    assert.ok(preview.previewUrl.includes(`signature=${preview.signature}`));
+
+    // 2. Validate valid preview token
+    const verifyResult = verifyPreviewToken(pageId, revisionId, preview.expires, preview.signature, secret);
+    assert.strictEqual(verifyResult.valid, true);
+    assert.strictEqual(verifyResult.pageId, pageId);
+    assert.strictEqual(verifyResult.revisionId, revisionId);
+    assert.strictEqual(verifyResult.expires, preview.expires);
+  });
+
+  it('Preview Token Security Engine rejects expired signatures, tampered payloads, and invalid secrets', () => {
+    const pageId = 'p-confidential-board-report';
+    const revisionId = 'rev-exec-1';
+    const secret = 'top-secret-board-preview-key';
+
+    const validPreview = generatePreviewToken(pageId, revisionId, {
+      expiresInSeconds: 3600,
+      secret,
+    });
+
+    // 1. Tampered signature
+    const tamperedSig = 'deadbeef' + validPreview.signature.slice(8);
+    const tamperRes = verifyPreviewToken(pageId, revisionId, validPreview.expires, tamperedSig, secret);
+    assert.strictEqual(tamperRes.valid, false);
+    assert.strictEqual(tamperRes.error, 'INVALID_SIGNATURE');
+
+    // 2. Tampered pageId
+    const tamperedPageRes = verifyPreviewToken('p-unauthorized-page', revisionId, validPreview.expires, validPreview.signature, secret);
+    assert.strictEqual(tamperedPageRes.valid, false);
+    assert.strictEqual(tamperedPageRes.error, 'INVALID_SIGNATURE');
+
+    // 3. Tampered revisionId
+    const tamperedRevRes = verifyPreviewToken(pageId, 'rev-hacked-999', validPreview.expires, validPreview.signature, secret);
+    assert.strictEqual(tamperedRevRes.valid, false);
+    assert.strictEqual(tamperedRevRes.error, 'INVALID_SIGNATURE');
+
+    // 4. Expired token rejection
+    const expiredTimestamp = Date.now() - 10000; // 10s in past
+    const expiredRes = verifyPreviewToken(pageId, revisionId, expiredTimestamp, validPreview.signature, secret);
+    assert.strictEqual(expiredRes.valid, false);
+    assert.strictEqual(expiredRes.error, 'EXPIRED');
+
+    // 5. Secret mismatch
+    const wrongSecretRes = verifyPreviewToken(pageId, revisionId, validPreview.expires, validPreview.signature, 'wrong-secret-xyz');
+    assert.strictEqual(wrongSecretRes.valid, false);
+    assert.strictEqual(wrongSecretRes.error, 'INVALID_SIGNATURE');
+
+    // 6. Malformed input
+    const malformedRes = verifyPreviewToken('', revisionId, validPreview.expires, '', secret);
+    assert.strictEqual(malformedRes.valid, false);
+    assert.strictEqual(malformedRes.error, 'MALFORMED');
+  });
+
+  it('Page Revision Snapshot Diff Engine accurately detects Added, Removed, Modified, and Unchanged blocks with deep config inspection', () => {
+    const baseBlocks = [
+      {
+        id: 'b-hero',
+        type: 'hero',
+        name: 'Hero Tuyển Sinh',
+        config: { title: 'Mùa Tuyển Sinh 2025', subtitle: 'Khởi đầu tài năng' },
+      },
+      {
+        id: 'b-news',
+        type: 'news_grid',
+        name: 'Tin Tức Nổi Bật',
+        config: { limit: 4, category: 'all' },
+      },
+      {
+        id: 'b-cta-old',
+        type: 'cta_banner',
+        name: 'CTA Năm Ngoái',
+        config: { title: 'Đăng ký 2025' },
+      },
+    ];
+
+    const targetBlocks = [
+      {
+        id: 'b-hero',
+        type: 'hero',
+        name: 'Hero Tuyển Sinh',
+        config: { title: 'Mùa Tuyển Sinh 2026 Mới Nhất', subtitle: 'Khởi đầu tài năng' },
+      },
+      {
+        id: 'b-news',
+        type: 'news_grid',
+        name: 'Tin Tức Nổi Bật',
+        config: { limit: 4, category: 'all' },
+      },
+      {
+        id: 'b-gallery-new',
+        type: 'gallery',
+        name: 'Thư Viện Cơ Sở Vật Chất',
+        config: { columns: '4', images: [] },
+      },
+      // b-cta-old is omitted -> removed
+    ];
+
+    const diff = comparePageRevisions(baseBlocks, targetBlocks);
+
+    // 1. Overall stats
+    assert.strictEqual(diff.hasChanges, true);
+    assert.strictEqual(diff.totalChanges, 3, 'Should have 3 changes (1 added, 1 removed, 1 modified)');
+    assert.strictEqual(diff.addedCount, 1);
+    assert.strictEqual(diff.removedCount, 1);
+    assert.strictEqual(diff.modifiedCount, 1);
+    assert.strictEqual(diff.unchangedCount, 1);
+
+    // 2. Block-specific change inspections
+    const modifiedHero = diff.diffItems.find((d) => d.id === 'b-hero');
+    assert.ok(modifiedHero);
+    assert.strictEqual(modifiedHero.changeType, 'modified');
+    assert.ok(modifiedHero.configDiff && modifiedHero.configDiff.length === 1);
+    assert.strictEqual(modifiedHero.configDiff[0].field, 'title');
+    assert.strictEqual(modifiedHero.configDiff[0].oldValue, 'Mùa Tuyển Sinh 2025');
+    assert.strictEqual(modifiedHero.configDiff[0].newValue, 'Mùa Tuyển Sinh 2026 Mới Nhất');
+
+    const addedGallery = diff.diffItems.find((d) => d.id === 'b-gallery-new');
+    assert.ok(addedGallery);
+    assert.strictEqual(addedGallery.changeType, 'added');
+    assert.strictEqual(addedGallery.type, 'gallery');
+
+    const removedCta = diff.diffItems.find((d) => d.id === 'b-cta-old');
+    assert.ok(removedCta);
+    assert.strictEqual(removedCta.changeType, 'removed');
+
+    const unchangedNews = diff.diffItems.find((d) => d.id === 'b-news');
+    assert.ok(unchangedNews);
+    assert.strictEqual(unchangedNews.changeType, 'unchanged');
+  });
 
   console.log('\n====================================================');
   console.log(`📊 TEST RESULTS: ${passed} Passed | ${failed} Failed`);

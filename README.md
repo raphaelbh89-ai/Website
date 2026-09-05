@@ -162,6 +162,18 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
   - Tích hợp nút CTA 1-chạm kết nối trực tiếp vào Form nộp hồ sơ trực tuyến.
 - **Hệ thống API REST & Streaming SSE**: `/api/v1/chatbot/query`, `/api/v1/chatbot/knowledge`, `/api/v1/chatbot/conversations`.
 
+### 15. Đa Cơ Sở Hybrid Subdomain Routing, Scoped Theming, Xem Trước Bảo Mật HMAC & So Sánh Bản Sửa Đổi (Multi-Campus & Executive Preview)
+- **Định tuyến Subdomain & Tên Miền Riêng (Edge Middleware)**:
+  - Tự động nhận diện hostname (`bienhoa.school.edu.vn`, `truongbienhoa.edu.vn`, v.v.) qua Next.js Edge Middleware và điều hướng rewrite tới trang cơ sở `/co-so/[branchSlug]`.
+  - Bộ token nhận diện màu sắc đặc thù: Biên Hòa (`#047857` Emerald), Thủ Đức (`#1d4ed8` Royal Blue), Cầu Giấy (`#b91c1c` Academic Crimson) tiêm động vào biến CSS.
+- **Xem Trước Bản Thảo Bảo Mật Bằng Ký Số HMAC-SHA256 (Executive Draft Preview)**:
+  - Sinh đường dẫn xem trước có chữ ký điện tử thời hạn 24h, bảo vệ chống giả mạo bằng thuật toán so sánh an toàn `timingSafeEqualStrings()`.
+  - Ban Giám Hiệu / Hội đồng Quản trị có thể xem trước nội dung bản thảo trực tiếp trên giao diện Cổng thông tin công cộng mà không cần tài khoản CMS admin.
+  - Tích hợp thanh cảnh báo bảo mật trên đầu trang và modal 1-chạm copy link trên Admin Dashboard.
+- **So Sánh Trực Quan Lịch Sử Phiên Bản (Revision Visual Diff Engine)**:
+  - So sánh đối chiếu trực tiếp giữa 2 phiên bản revision: tự động phát hiện các khối Thêm mới (+Added), Bị xóa (-Removed), Biến đổi cấu hình (ΔModified), và Giữ nguyên (=Unchanged).
+  - Modal Diff Inspector hiển thị trực quan các trường cấu hình JSON được thay đổi kèm 4 thẻ KPI tổng hợp.
+
 ---
 
 ## 🚀 Hướng Dẫn Cài Đặt & Chạy Môi Trường Cục Bộ
@@ -179,7 +191,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 40/40 tests passing (BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow, AI Knowledge Base Indexing & Multi-category Chunk Validation, Chatbot Intent Classification & Confidence Scoring Precision, RAG Context Grounding & Strict Citation Attribution, AI Chatbot Query REST API & SSE Streaming Contract, Multi-Campus Knowledge Scoping & Global Inheritance).*
+*Kết quả: 45/45 tests passing (BlockRegistry 16 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, 16 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Complete 16 Standard Blocks Library Coverage & Config Integrity, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle, Admissions Step-by-Step Form Wizard Validation, Application Code Generation HS-2026-XXXX & Conversion KPIs, Online Admissions REST API & Status Progression Workflow, AI Knowledge Base Indexing & Multi-category Chunk Validation, Chatbot Intent Classification & Confidence Scoring Precision, RAG Context Grounding & Strict Citation Attribution, AI Chatbot Query REST API & SSE Streaming Contract, Multi-Campus Knowledge Scoping & Global Inheritance, Multi-Campus Hostname Resolution, Scoped Campus Theming & Fallback, HMAC-SHA256 Signed Preview Links, Preview Security & Tamper Proofing, Page Revision Snapshot Deep Diff Comparator).*
 
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu

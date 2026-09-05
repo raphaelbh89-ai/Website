@@ -1,7 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BlockRegistry } from '@school-cms/cms';
+import {
+  BlockRegistry,
+  generatePreviewToken,
+  comparePageRevisions,
+  GeneratedPreviewResult,
+  PageRevisionDiffResult,
+} from '@school-cms/cms';
 import {
   DEFAULT_TRANSLATIONS,
   TranslationItem,
@@ -415,6 +421,13 @@ export default function AdminDashboard() {
   ]);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [inspectRevision, setInspectRevision] = useState<PageRevision | null>(null);
+
+  // Preview Link & Revision Diff states
+  const [showPreviewLinkModal, setShowPreviewLinkModal] = useState(false);
+  const [generatedPreviewData, setGeneratedPreviewData] = useState<GeneratedPreviewResult | null>(null);
+  const [showDiffModal, setShowDiffModal] = useState(false);
+  const [diffComparisonResult, setDiffComparisonResult] = useState<PageRevisionDiffResult | null>(null);
+  const [diffComparingRevision, setDiffComparingRevision] = useState<PageRevision | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -861,6 +874,26 @@ export default function AdminDashboard() {
     setShowRevisionModal(false);
     setInspectRevision(null);
     showToast(`Đã khôi phục thành công giao diện về phiên bản v${rev.version}!`);
+  };
+
+  const handleOpenPreviewModal = () => {
+    const revId = revisions[0]?.id || 'rev-current';
+    const preview = generatePreviewToken('page-home', revId, { expiresInSeconds: 86400 });
+    setGeneratedPreviewData(preview);
+    setShowPreviewLinkModal(true);
+    addAuditLog({
+      action: 'EXPORT',
+      entityType: 'PAGE',
+      entityTitle: 'Link Xem Trước An Toàn (HMAC)',
+      details: `Sinh link xem trước cho ${revId}, chữ ký: ${preview.signature.slice(0, 8)}...`,
+    });
+  };
+
+  const handleCompareRevisionDiff = (rev: PageRevision) => {
+    const diff = comparePageRevisions(rev.blocksSnapshot, blocks);
+    setDiffComparisonResult(diff);
+    setDiffComparingRevision(rev);
+    setShowDiffModal(true);
   };
 
   const handleExportSiteBackup = () => {
@@ -1533,6 +1566,15 @@ export default function AdminDashboard() {
                   <span className="bg-slate-200 text-slate-700 text-xs px-1.5 py-0.5 rounded-full font-bold">
                     {revisions.length}
                   </span>
+                </button>
+
+                <button
+                  onClick={handleOpenPreviewModal}
+                  className="px-3.5 py-2 border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 shadow-sm"
+                  title="Tạo liên kết xem trước an toàn có chữ ký điện tử HMAC cho Ban Giám Hiệu"
+                >
+                  <span>🔒</span>
+                  <span>Xem Trước (HMAC)</span>
                 </button>
 
                 <button
@@ -5219,6 +5261,13 @@ export default function AdminDashboard() {
 
                       <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 shrink-0">
                         <button
+                          onClick={() => handleCompareRevisionDiff(rev)}
+                          className="px-3 py-1.5 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg text-xs font-semibold transition-colors"
+                          title="So sánh trực quan các block thay đổi so với bản hiện tại"
+                        >
+                          ⚖️ So Sánh Diff
+                        </button>
+                        <button
                           onClick={() => setInspectRevision(isInspecting ? null : rev)}
                           className="px-3 py-1.5 border border-slate-300 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-100 transition-colors"
                         >
@@ -5565,6 +5614,235 @@ export default function AdminDashboard() {
                 className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors"
               >
                 Đồng Ý Xóa Trắng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TẠO LIÊN KẾT XEM TRƯỚC AN TOÀN HMAC-SHA256 (EXECUTIVE PREVIEW) */}
+      {showPreviewLinkModal && generatedPreviewData && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-slate-200 space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center text-2xl shadow-sm">
+                  🔒
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Liên Kết Xem Trước An Toàn (HMAC-SHA256)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Ký số bảo mật điện tử & thời hạn 24 giờ dành cho Ban Giám Hiệu
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPreviewLinkModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-amber-900 leading-relaxed space-y-1">
+                <span className="font-bold block">💡 Quyền lợi xem trước an toàn:</span>
+                <p>
+                  Thầy/Cô Ban Giám Hiệu có thể mở liên kết này trên điện thoại hoặc máy tính bảng để xem bản nháp thời gian thực mà <strong>không cần đăng nhập tài khoản CMS Admin</strong>. Chữ ký số HMAC-SHA256 sẽ ngăn chặn mọi hành vi chỉnh sửa tham số trái phép.
+                </p>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Đường dẫn xem trước (Preview URL):
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={generatedPreviewData.previewUrl}
+                    className="flex-1 p-2.5 rounded-xl border border-slate-300 font-mono text-[11px] bg-slate-50 select-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedPreviewData.previewUrl);
+                      showToast('Đã sao chép liên kết xem trước an toàn vào bộ nhớ tạm!');
+                    }}
+                    className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold transition-all shadow-sm shrink-0"
+                  >
+                    📋 Sao Chép
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2 text-slate-600">
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-400 font-bold block uppercase">Thời hạn hiệu lực</span>
+                  <span className="font-semibold text-slate-800 text-xs">
+                    {new Date(generatedPreviewData.expires).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}{' '}
+                    ngày {new Date(generatedPreviewData.expires).toLocaleDateString('vi-VN')}
+                  </span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-400 font-bold block uppercase">Bảo mật chữ ký</span>
+                  <span className="font-mono text-[11px] text-emerald-700 font-bold">
+                    HMAC-SHA256 ✓
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowPreviewLinkModal(false)}
+                className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Đóng
+              </button>
+              <a
+                href={generatedPreviewData.previewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md transition-colors flex items-center gap-1.5"
+              >
+                <span>↗</span>
+                <span>Mở Thử Trong Tab Mới</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SO SÁNH TRỰC QUAN PHIÊN BẢN (VISUAL REVISION DIFF) */}
+      {showDiffModal && diffComparisonResult && diffComparingRevision && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl border border-slate-200 space-y-5 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-800 flex items-center justify-center text-2xl shadow-sm">
+                  ⚖️
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    So Sánh Trực Quan Thay Đổi (Visual Diff)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Bản Nháp Hiện Tại ↔ Phiên Bản v{diffComparingRevision.version} ({diffComparingRevision.createdAt})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDiffModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 4 Diff Metric Pills */}
+            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              <div className="p-2 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-200">
+                <span className="font-bold text-sm block">+{diffComparisonResult.addedCount}</span>
+                <span className="text-[10px]">Khối Mới Thêm</span>
+              </div>
+              <div className="p-2 bg-rose-50 text-rose-800 rounded-xl border border-rose-200">
+                <span className="font-bold text-sm block">-{diffComparisonResult.removedCount}</span>
+                <span className="text-[10px]">Khối Bị Xóa</span>
+              </div>
+              <div className="p-2 bg-blue-50 text-blue-800 rounded-xl border border-blue-200">
+                <span className="font-bold text-sm block">Δ {diffComparisonResult.modifiedCount}</span>
+                <span className="text-[10px]">Khối Chỉnh Sửa</span>
+              </div>
+              <div className="p-2 bg-slate-50 text-slate-600 rounded-xl border border-slate-200">
+                <span className="font-bold text-sm block">= {diffComparisonResult.unchangedCount}</span>
+                <span className="text-[10px]">Giữ Nguyên</span>
+              </div>
+            </div>
+
+            {/* Diff Items List */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-xs">
+              {diffComparisonResult.diffItems.map((item, idx) => {
+                const badgeColor =
+                  item.changeType === 'added'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : item.changeType === 'removed'
+                    ? 'bg-rose-100 text-rose-800 border-rose-300'
+                    : item.changeType === 'modified'
+                    ? 'bg-blue-100 text-blue-800 border-blue-300'
+                    : 'bg-slate-100 text-slate-600 border-slate-200';
+
+                const badgeText =
+                  item.changeType === 'added'
+                    ? '+ Thêm Mới'
+                    : item.changeType === 'removed'
+                    ? '- Đã Xóa'
+                    : item.changeType === 'modified'
+                    ? 'Δ Chỉnh Sửa'
+                    : '= Giữ Nguyên';
+
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${badgeColor}`}>
+                          {badgeText}
+                        </span>
+                        <strong className="text-slate-800">{item.name}</strong>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono">{item.type}</span>
+                    </div>
+
+                    {item.details && (
+                      <p className="text-[11px] text-slate-600 italic pl-1">{item.details}</p>
+                    )}
+
+                    {item.configDiff && item.configDiff.length > 0 && (
+                      <div className="bg-white p-2 rounded-xl border border-slate-100 space-y-1 text-[11px] font-mono">
+                        {item.configDiff.map((cDiff, cIdx) => (
+                          <div key={cIdx} className="flex items-center gap-1.5">
+                            <span className="text-slate-400">{cDiff.field}:</span>
+                            <span className="text-rose-600 line-through">
+                              {String(cDiff.oldValue)}
+                            </span>
+                            <span className="text-slate-400">➔</span>
+                            <span className="text-emerald-600 font-bold">
+                              {String(cDiff.newValue)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowDiffModal(false)}
+                className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiffModal(false);
+                  handleRollbackRevision(diffComparingRevision);
+                }}
+                className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-md transition-colors"
+              >
+                ↺ Khôi Phục Về Bản v{diffComparingRevision.version}
               </button>
             </div>
           </div>

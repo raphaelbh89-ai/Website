@@ -29,7 +29,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 19** | Hoàn thiện 16 Blocks Chuẩn (Video, Google Map, Rich Text, Image Text), Wizard Tuyển Sinh 4 Bước & 35 Tests | Hoàn thành | `4905a28` |
 | **Phase 20** | Package Trợ Lý AI Tuyển Sinh RAG `@school-cms/ai-chatbot`, Sổ Tay Tri Thức Đa Cơ Sở, Sandbox Console & 40 Tests | Hoàn thành | `a5b9637` |
 | **Phase 21** | Đa Cơ Sở Hybrid Subdomain Routing, Scoped Theming, Xem Trước Bảo Mật HMAC & So Sánh Snapshot Diff & 45 Tests | Hoàn thành | `ee74d60` |
-| **Phase 22** | Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN & 50 Tests | Hoàn thành | `Đang cập nhật` |
+| **Phase 22** | Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN & 50 Tests | Hoàn thành | `77fec7a` |
 
 ---
 
@@ -224,7 +224,7 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
     - Nút `⚖️ So Sánh Diff` trên thẻ lịch sử phiên bản: mở modal Diff Inspector trực quan với 4 thẻ KPI (+Added, -Removed, ΔModified, =Unchanged) cùng bảng chi tiết từng thuộc tính thay đổi.
   - `apps/api/src/__tests__/test-runner.ts`: Bổ sung 5 bài kiểm thử tự động chuyên sâu (Tests 41 - 45) nâng tổng số lên **45 tests passing 100%**.
 
-### Phase 22: Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN Checksum & Tự Động Chuyển Trạng Thái Tuyển Sinh (Commit: Đang cập nhật)
+### Phase 22: Cổng Thanh Toán Học Phí Trực Tuyến `@school-cms/payment`, VietQR Napas 247, HMAC-SHA512 IPN Checksum & Tự Động Chuyển Trạng Thái Tuyển Sinh (Commit: 77fec7a)
 - **Tài liệu tham chiếu**:
   - `docs/11-extensibility.md` Section 11.4 Câu hỏi 3: Triển khai Cổng thanh toán trực tuyến (VietQR, VNPay, MoMo, Idempotency, HMAC IPN Webhook).
   - `docs/07-security.md` Section 7.4 & 7.5: Kiểm toán giao dịch, mã hóa chữ ký số và phòng chống trừ tiền trùng lặp (Double-charging prevention).

@@ -1,0 +1,25 @@
+{
+  "name": "@school-cms/api",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@school-cms/auth": "workspace:*",
+    "@school-cms/database": "workspace:*",
+    "@school-cms/forms": "workspace:*",
+    "@school-cms/media": "workspace:*",
+    "@school-cms/shared": "workspace:*",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

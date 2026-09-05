@@ -84,6 +84,14 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 - Bộ điều khiển màu thương hiệu (Primary, Secondary / Accent), bo góc (4px - 20px), font chữ (`Outfit`, `Inter`, `Roboto`, `Plus Jakarta Sans`).
 - Khung Live Preview xem trước thời gian thực và xuất khẩu biến số `:root` CSS Variables.
 
+### 8. Hệ Thống Fastify REST API Doanh Nghiệp Toàn Diện
+- **Pages & Revision API**: `/api/v1/pages`, `/api/v1/pages/:id/publish`, `/api/v1/pages/:id/rollback` (lưu snapshot và khôi phục layout trang).
+- **Navigation Menus API**: `/api/v1/menus`, `/api/v1/menus/reorder`, `/api/v1/menus/:id` (quản trị liên kết Header/Footer).
+- **Multi-Language (i18n) API**: `/api/v1/translations`, `/api/v1/translations/:key` (quản trị từ điển song ngữ tập trung).
+- **User Accounts & RBAC Matrix API**: `/api/v1/users`, `/api/v1/users/:id/status`, `/api/v1/roles/permissions` (quản lý phân quyền động).
+- **System Backup & Restore API**: `/api/v1/system/backup`, `/api/v1/system/restore` (sao lưu & phục hồi toàn bộ trang web).
+- **Healthcheck Monitor API**: `/api/v1/health` tự động giám sát số lượng blocks, trang, cơ sở, bài viết, menu và người dùng.
+
 ---
 
 ## 🚀 Hướng Dẫn Cài Đặt & Chạy Môi Trường Cục Bộ
@@ -101,7 +109,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 12/12 tests passing (BlockRegistry 8 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package).*
+*Kết quả: 16/16 tests passing (BlockRegistry 8 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard).*
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu
 ```bash

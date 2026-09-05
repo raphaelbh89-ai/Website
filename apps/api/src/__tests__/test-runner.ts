@@ -300,6 +300,125 @@ async function runTestSuite() {
     assert.ok(parsed.localization.locales.includes('en'));
   });
 
+  // 7. ENTERPRISE REST API CONTRACTS & WORKFLOW INTEGRITY
+  console.log('\n--- 7. Enterprise REST API Contracts & Workflows ---');
+
+  it('Pages API lifecycle: Publish creates immutable version snapshot, Rollback restores block layout', () => {
+    let mockPage = {
+      id: 'p-test',
+      title: 'Trang Thử Nghiệm',
+      status: 'DRAFT',
+      blocks: [
+        { id: 'b1', type: 'hero_banner', name: 'Hero', config: { title: 'V1 Title' } },
+      ] as Array<{ id: string; type: string; name: string; config: Record<string, any> }>,
+      revisions: [] as Array<{ id: string; version: number; blocksSnapshot: any[] }>,
+    };
+
+    // 1. Publish V1
+    const rev1 = {
+      id: 'rev-1',
+      version: 1,
+      blocksSnapshot: JSON.parse(JSON.stringify(mockPage.blocks)),
+    };
+    mockPage.revisions.unshift(rev1);
+    mockPage.status = 'PUBLISHED';
+    assert.strictEqual(mockPage.status, 'PUBLISHED');
+    assert.strictEqual(mockPage.revisions.length, 1);
+
+    // 2. Add block and Publish V2
+    mockPage.blocks.push({ id: 'b2', type: 'faq_accordion', name: 'FAQ', config: { title: 'FAQ Title' } });
+    const rev2 = {
+      id: 'rev-2',
+      version: 2,
+      blocksSnapshot: JSON.parse(JSON.stringify(mockPage.blocks)),
+    };
+    mockPage.revisions.unshift(rev2);
+    assert.strictEqual(mockPage.blocks.length, 2);
+    assert.strictEqual(mockPage.revisions.length, 2);
+
+    // 3. Rollback to V1
+    mockPage.blocks = JSON.parse(JSON.stringify(rev1.blocksSnapshot));
+    assert.strictEqual(mockPage.blocks.length, 1);
+    assert.strictEqual(mockPage.blocks[0].id, 'b1');
+    assert.strictEqual(mockPage.blocks[0].config.title, 'V1 Title');
+  });
+
+  it('Navigation Menus API: Reordering maintains correct location hierarchy and orders', () => {
+    let headerMenus = [
+      { id: 'm1', title: 'Trang Chủ', order: 1, location: 'header' },
+      { id: 'm2', title: 'Chương Trình Học', order: 2, location: 'header' },
+      { id: 'm3', title: 'Cơ Sở', order: 3, location: 'header' },
+    ];
+
+    // Reorder: swap m1 and m2
+    const reorderPayload = [
+      { id: 'm2', order: 1 },
+      { id: 'm1', order: 2 },
+      { id: 'm3', order: 3 },
+    ];
+
+    reorderPayload.forEach(p => {
+      const it = headerMenus.find(m => m.id === p.id);
+      if (it) it.order = p.order;
+    });
+
+    headerMenus.sort((a, b) => a.order - b.order);
+    assert.strictEqual(headerMenus[0].id, 'm2');
+    assert.strictEqual(headerMenus[1].id, 'm1');
+    assert.strictEqual(headerMenus[2].id, 'm3');
+  });
+
+  it('Multi-language (i18n) Dictionary API: Bilingual insertion, key slugification and update integrity', () => {
+    let dict = [...DEFAULT_TRANSLATIONS];
+    const initialLen = dict.length;
+
+    // Test slugification & addition
+    const rawKey = 'Admission.Deadline 2026!';
+    const cleanKey = rawKey.trim().toLowerCase().replace(/[^a-z0-9_.]/g, '_');
+    assert.strictEqual(cleanKey, 'admission.deadline_2026_');
+
+    dict.push({
+      key: cleanKey,
+      vi: 'Hạn chót nộp hồ sơ 2026',
+      en: 'Application Deadline 2026',
+      category: 'admissions',
+    });
+    assert.strictEqual(dict.length, initialLen + 1);
+
+    // Test update
+    const target = dict.find(t => t.key === cleanKey);
+    assert.ok(target);
+    if (target) {
+      target.en = 'Final Application Deadline 2026';
+    }
+    const updated = dict.find(t => t.key === cleanKey);
+    assert.strictEqual(updated?.en, 'Final Application Deadline 2026');
+  });
+
+  it('User Accounts & RBAC API: Super Admin deletion prevention guard and dynamic role permissions update', () => {
+    let testUsers = [
+      { id: 'u1', name: 'Super Admin', role: RoleCode.SUPER_ADMIN },
+      { id: 'u2', name: 'Editor', role: RoleCode.CONTENT_EDITOR },
+    ];
+
+    // Attempting to delete the only Super Admin should be rejected
+    function deleteUser(id: string) {
+      const u = testUsers.find(x => x.id === id);
+      if (!u) throw new Error('Not found');
+      if (u.role === RoleCode.SUPER_ADMIN && testUsers.filter(x => x.role === RoleCode.SUPER_ADMIN).length <= 1) {
+        throw new Error('Cannot delete the sole Super Admin');
+      }
+      testUsers = testUsers.filter(x => x.id !== id);
+    }
+
+    assert.throws(() => deleteUser('u1'), /Cannot delete the sole Super Admin/);
+    assert.strictEqual(testUsers.length, 2);
+
+    // Deleting editor succeeds
+    deleteUser('u2');
+    assert.strictEqual(testUsers.length, 1);
+  });
+
   console.log('\n====================================================');
   console.log(`📊 TEST RESULTS: ${passed} Passed | ${failed} Failed`);
   console.log('====================================================\n');

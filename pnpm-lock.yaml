@@ -81,6 +81,12 @@ importers:
       '@school-cms/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@school-cms/blocks':
+        specifier: workspace:*
+        version: link:../../packages/blocks
+      '@school-cms/cms':
+        specifier: workspace:*
+        version: link:../../packages/cms
       '@school-cms/database':
         specifier: workspace:*
         version: link:../../packages/database

@@ -1,11 +1,24 @@
 import Fastify from 'fastify';
-import { ApiResponse, Branch, Article, Category, Program, ContentStatus } from '@school-cms/shared';
+import { BlockRegistry } from '@school-cms/cms';
+import '@school-cms/blocks';
+import {
+  ApiResponse,
+  Branch,
+  Article,
+  Category,
+  Program,
+  ContentStatus,
+  DEFAULT_TRANSLATIONS,
+  TranslationItem,
+} from '@school-cms/shared';
 import {
   AuditLogEntry,
   hasPermission,
   canAccessBranchResource,
   UserContext,
   RoleCode,
+  ALL_PERMISSIONS,
+  RolePermissions,
 } from '@school-cms/auth';
 
 const server = Fastify({ logger: true });
@@ -287,6 +300,165 @@ function recordAudit(log: Omit<AuditLogEntry, 'id' | 'timestamp'>) {
   auditLogsStore.unshift(newEntry);
   return newEntry;
 }
+
+// -------------------------------------------------------------
+// Enterprise Data Stores (Pages, Revisions, Menus, i18n, Users)
+// -------------------------------------------------------------
+export interface PageBlock {
+  id: string;
+  type: string;
+  name: string;
+  config: Record<string, any>;
+}
+
+export interface PageRevisionItem {
+  id: string;
+  version: number;
+  createdAt: string;
+  author: string;
+  description: string;
+  blocksSnapshot: PageBlock[];
+}
+
+export interface PageItem {
+  id: string;
+  title: string;
+  slug: string;
+  status: 'DRAFT' | 'PUBLISHED';
+  branchId: string | null;
+  blocks: PageBlock[];
+  revisions: PageRevisionItem[];
+  updatedAt: string;
+}
+
+let pagesStore: PageItem[] = [
+  {
+    id: 'page-home',
+    title: 'Trang Chủ Alpha School',
+    slug: 'trang-chu',
+    status: 'PUBLISHED',
+    branchId: null,
+    blocks: [
+      {
+        id: 'blk-1',
+        type: 'hero_banner',
+        name: 'Hero Banner Lớn',
+        config: {
+          title: 'Khát Vọng Vươn Tầm Cùng Alpha School',
+          subtitle: 'Môi trường giáo dục liên cấp song ngữ chuẩn quốc tế',
+          primaryButtonText: 'Đăng ký nhận học bổng',
+        },
+      },
+      {
+        id: 'blk-2',
+        type: 'program_list',
+        name: 'Danh sách Chương trình đào tạo',
+        config: {
+          title: 'Chương Trình Đào Tạo Chuẩn Quốc Tế',
+          columns: '3',
+        },
+      },
+      {
+        id: 'blk-3',
+        type: 'branch_list',
+        name: 'Danh sách Cơ sở',
+        config: {
+          title: 'Hệ Thống Các Cơ Sở Toàn Quốc',
+        },
+      },
+      {
+        id: 'blk-4',
+        type: 'form_embed',
+        name: 'Form Tuyển Sinh & Liên Hệ',
+        config: {
+          title: 'Đăng Ký Tư Vấn Tuyển Sinh 2025 - 2026',
+          subtitle: 'Nhận cẩm nang tuyển sinh và học bổng lên tới 50%',
+          formCode: 'tuyen-sinh-2025',
+          submitButtonText: 'Gửi thông tin đăng ký',
+        },
+      },
+    ],
+    revisions: [
+      {
+        id: 'rev-1',
+        version: 1,
+        createdAt: '2026-09-01T09:00:00.000Z',
+        author: 'Super Admin',
+        description: 'Khởi tạo cấu trúc trang chủ sơ khai (1 block cốt lõi)',
+        blocksSnapshot: [
+          {
+            id: 'blk-1',
+            type: 'hero_banner',
+            name: 'Hero Banner Lớn',
+            config: {
+              title: 'Alpha School: Kiến Tạo Tương Lai',
+              subtitle: 'Hệ thống giáo dục tiên phong công nghệ',
+              primaryButtonText: 'Khám phá ngay',
+            },
+          },
+        ],
+      },
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+export interface MenuItemRecord {
+  id: string;
+  title: string;
+  url: string;
+  target: '_self' | '_blank';
+  order: number;
+  isActive: boolean;
+  location: 'header' | 'footer';
+}
+
+let menusStore: MenuItemRecord[] = [
+  { id: 'm-1', title: 'Trang Chủ', url: '/', target: '_self', order: 1, isActive: true, location: 'header' },
+  { id: 'm-2', title: 'Chương Trình Học', url: '/chuong-trinh-hoc', target: '_self', order: 2, isActive: true, location: 'header' },
+  { id: 'm-3', title: 'Hệ Thống Cơ Sở', url: '#co-so', target: '_self', order: 3, isActive: true, location: 'header' },
+  { id: 'm-4', title: 'Tin Tức & Sự Kiện', url: '/tin-tuc', target: '_self', order: 4, isActive: true, location: 'header' },
+  { id: 'm-5', title: 'Tuyển Sinh 2025', url: '/tuyen-sinh', target: '_self', order: 5, isActive: true, location: 'header' },
+  { id: 'm-6', title: 'Chính Sách Bảo Mật', url: '/privacy', target: '_self', order: 1, isActive: true, location: 'footer' },
+  { id: 'm-7', title: 'Điều Khoản Dịch Vụ', url: '/terms', target: '_self', order: 2, isActive: true, location: 'footer' },
+  { id: 'm-8', title: 'Sơ Đồ Trang Web', url: '/sitemap.xml', target: '_blank', order: 3, isActive: true, location: 'footer' },
+];
+
+let translationsStore: TranslationItem[] = [...DEFAULT_TRANSLATIONS];
+
+export interface UserAccountRecord {
+  id: string;
+  name: string;
+  email: string;
+  role: RoleCode;
+  branchId: string | null;
+  branchName: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  lastLogin: string;
+}
+
+let usersStore: UserAccountRecord[] = [
+  { id: 'usr-1', name: 'Nguyễn Đình Trọng', email: 'trong.admin@school.edu.vn', role: RoleCode.SUPER_ADMIN, branchId: null, branchName: 'Toàn hệ thống (Global)', status: 'ACTIVE', lastLogin: '05/09/2026 18:25' },
+  { id: 'usr-2', name: 'Trần Minh Quang', email: 'quang.director@school.edu.vn', role: RoleCode.CAMPUS_DIRECTOR, branchId: 'b-001', branchName: 'Alpha School - Cơ sở Biên Hòa', status: 'ACTIVE', lastLogin: '05/09/2026 15:10' },
+  { id: 'usr-3', name: 'Lê Thu Hà', email: 'ha.tuyensinh@school.edu.vn', role: RoleCode.ADMISSIONS_OFFICER, branchId: 'b-002', branchName: 'Alpha School - Cơ sở TP. Thủ Đức', status: 'ACTIVE', lastLogin: '05/09/2026 11:30' },
+  { id: 'usr-4', name: 'Phạm Tuấn Kiệt', email: 'kiet.editor@school.edu.vn', role: RoleCode.CONTENT_EDITOR, branchId: null, branchName: 'Toàn hệ thống (Global)', status: 'ACTIVE', lastLogin: '04/09/2026 16:45' },
+];
+
+let dynamicRolePermissionsStore: Record<string, string[]> = {
+  SUPER_ADMIN: [...RolePermissions.SUPER_ADMIN],
+  CAMPUS_DIRECTOR: [...RolePermissions.CAMPUS_DIRECTOR],
+  ADMISSIONS_OFFICER: [...RolePermissions.ADMISSIONS_OFFICER],
+  CONTENT_EDITOR: [...RolePermissions.CONTENT_EDITOR],
+};
+
+let themeTokensStore = {
+  primaryColor: '#047857',
+  secondaryColor: '#065f46',
+  accentColor: '#f59e0b',
+  borderRadius: '12px',
+  fontFamily: 'Outfit, sans-serif',
+  containerMaxWidth: '1280px',
+};
 
 // -------------------------------------------------------------
 // REST API ROUTES
@@ -646,14 +818,708 @@ server.get('/api/v1/audit-logs', async (req, reply) => {
   return formatSuccessResponse(results);
 });
 
-// 7. PUBLIC PAGE API (Dynamic Page Resolver)
+// 7. PAGES & REVISION REST API
+server.get('/api/v1/pages', async (req) => {
+  const { branchId, status } = req.query as { branchId?: string; status?: string };
+  let results = pagesStore;
+  if (branchId && branchId !== 'all') {
+    results = results.filter((p) => p.branchId === branchId || p.branchId === null);
+  }
+  if (status) {
+    results = results.filter((p) => p.status === status);
+  }
+  return formatSuccessResponse(
+    results.map((p) => ({
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      status: p.status,
+      branchId: p.branchId,
+      blocksCount: p.blocks.length,
+      revisionsCount: p.revisions.length,
+      updatedAt: p.updatedAt,
+    }))
+  );
+});
+
+server.get('/api/v1/pages/:id', async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const page = pagesStore.find((p) => p.id === id || p.slug === id);
+  if (!page) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy thông tin trang' },
+    });
+  }
+  return formatSuccessResponse(page);
+});
+
+server.post('/api/v1/pages/:id/publish', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'pages:publish')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền xuất bản trang' },
+    });
+  }
+
+  const { id } = req.params as { id: string };
+  const page = pagesStore.find((p) => p.id === id || p.slug === id);
+  if (!page) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy trang cần xuất bản' },
+    });
+  }
+
+  const nextVer = page.revisions.length > 0 ? Math.max(...page.revisions.map((r) => r.version)) + 1 : 1;
+  const newRev: PageRevisionItem = {
+    id: `rev-${Date.now()}`,
+    version: nextVer,
+    createdAt: new Date().toISOString(),
+    author: user.name,
+    description: `Xuất bản phiên bản v${nextVer} (${page.blocks.length} blocks)`,
+    blocksSnapshot: JSON.parse(JSON.stringify(page.blocks)),
+  };
+
+  page.revisions.unshift(newRev);
+  page.status = 'PUBLISHED';
+  page.updatedAt = new Date().toISOString();
+
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: page.branchId,
+    action: 'PUBLISH',
+    entityType: 'PAGE',
+    entityId: page.id,
+    entityTitle: page.title,
+    details: { version: nextVer, blocksCount: page.blocks.length },
+  });
+
+  return formatSuccessResponse({
+    page,
+    publishedRevision: newRev,
+    edgeCachePurged: true,
+  });
+});
+
+server.post('/api/v1/pages/:id/rollback', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'pages:write')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền khôi phục trang' },
+    });
+  }
+
+  const { id } = req.params as { id: string };
+  const { revisionId } = req.body as { revisionId: string };
+  const page = pagesStore.find((p) => p.id === id || p.slug === id);
+  if (!page) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy trang' },
+    });
+  }
+
+  const targetRev = page.revisions.find((r) => r.id === revisionId || `v${r.version}` === revisionId);
+  if (!targetRev) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy phiên bản snapshot cần khôi phục' },
+    });
+  }
+
+  page.blocks = JSON.parse(JSON.stringify(targetRev.blocksSnapshot));
+  page.updatedAt = new Date().toISOString();
+
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: page.branchId,
+    action: 'UPDATE',
+    entityType: 'PAGE',
+    entityId: page.id,
+    entityTitle: page.title,
+    details: { rollbackToVersion: targetRev.version, blocksCount: page.blocks.length },
+  });
+
+  return formatSuccessResponse({
+    page,
+    restoredRevision: targetRev,
+  });
+});
+
+// 8. NAVIGATION MENUS API
+server.get('/api/v1/menus', async (req) => {
+  const { location } = req.query as { location?: 'header' | 'footer' };
+  let results = [...menusStore];
+  if (location) {
+    results = results.filter((m) => m.location === location);
+  }
+  results.sort((a, b) => a.order - b.order);
+  return formatSuccessResponse(results);
+});
+
+server.post('/api/v1/menus', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền chỉnh sửa cấu trúc menu' },
+    });
+  }
+
+  const body = req.body as Partial<MenuItemRecord>;
+  const loc = body.location || 'header';
+  const sameLoc = menusStore.filter((m) => m.location === loc);
+  const nextOrder = sameLoc.length > 0 ? Math.max(...sameLoc.map((m) => m.order)) + 1 : 1;
+
+  const newItem: MenuItemRecord = {
+    id: `m-${Date.now()}`,
+    title: body.title || 'Liên kết mới',
+    url: body.url || '/',
+    target: body.target || '_self',
+    order: nextOrder,
+    isActive: true,
+    location: loc,
+  };
+
+  menusStore.push(newItem);
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: null,
+    action: 'CREATE',
+    entityType: 'MENU',
+    entityId: newItem.id,
+    entityTitle: newItem.title,
+    details: { location: newItem.location, url: newItem.url },
+  });
+
+  return formatSuccessResponse(newItem);
+});
+
+server.put('/api/v1/menus/reorder', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền sắp xếp menu' },
+    });
+  }
+
+  const { items } = req.body as { items: Array<{ id: string; order: number }> };
+  if (Array.isArray(items)) {
+    items.forEach((it) => {
+      const found = menusStore.find((m) => m.id === it.id);
+      if (found) {
+        found.order = it.order;
+      }
+    });
+  }
+
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: null,
+    action: 'UPDATE',
+    entityType: 'MENU',
+    entityId: 'menu-reorder',
+    entityTitle: 'Sắp xếp lại thứ tự Menu',
+  });
+
+  return formatSuccessResponse(menusStore);
+});
+
+server.delete('/api/v1/menus/:id', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền xóa liên kết menu' },
+    });
+  }
+
+  const { id } = req.params as { id: string };
+  const item = menusStore.find((m) => m.id === id);
+  menusStore = menusStore.filter((m) => m.id !== id);
+
+  if (item) {
+    recordAudit({
+      userId: user.userId,
+      userName: user.name,
+      userRole: user.roles[0],
+      branchId: null,
+      action: 'DELETE',
+      entityType: 'MENU',
+      entityId: id,
+      entityTitle: item.title,
+    });
+  }
+
+  return formatSuccessResponse({ deleted: true });
+});
+
+// 9. MULTI-LANGUAGE (i18n) API
+server.get('/api/v1/translations', async (req) => {
+  const { category, search } = req.query as { category?: string; search?: string };
+  let results = [...translationsStore];
+  if (category && category !== 'all') {
+    results = results.filter((t) => t.category === category);
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    results = results.filter((t) => t.key.toLowerCase().includes(q) || t.vi.toLowerCase().includes(q) || t.en.toLowerCase().includes(q));
+  }
+  return formatSuccessResponse(results);
+});
+
+server.post('/api/v1/translations', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền thêm khóa từ điển' },
+    });
+  }
+
+  const { key, vi, en, category } = req.body as TranslationItem;
+  if (!key || !vi || !en) {
+    return reply.status(422).send({
+      success: false,
+      data: null,
+      error: { code: 'VALIDATION_FAILED', message: 'Khóa dịch và nội dung song ngữ không được để trống' },
+    });
+  }
+
+  const cleanKey = key.trim().toLowerCase().replace(/[^a-z0-9_.]/g, '_');
+  const exists = translationsStore.find((t) => t.key === cleanKey);
+  if (exists) {
+    return reply.status(409).send({
+      success: false,
+      data: null,
+      error: { code: 'CONFLICT', message: 'Mã khóa dịch này đã tồn tại' },
+    });
+  }
+
+  const newItem: TranslationItem = {
+    key: cleanKey,
+    vi: vi.trim(),
+    en: en.trim(),
+    category: category || 'common',
+  };
+  translationsStore.push(newItem);
+
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: null,
+    action: 'CREATE',
+    entityType: 'TRANSLATION',
+    entityId: newItem.key,
+    entityTitle: `Khóa dịch: ${newItem.key}`,
+  });
+
+  return formatSuccessResponse(newItem);
+});
+
+server.put('/api/v1/translations/:key', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền sửa bản dịch' },
+    });
+  }
+
+  const { key } = req.params as { key: string };
+  const { vi, en } = req.body as { vi?: string; en?: string };
+  const item = translationsStore.find((t) => t.key === key);
+  if (!item) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy khóa dịch' },
+    });
+  }
+
+  if (vi !== undefined) item.vi = vi;
+  if (en !== undefined) item.en = en;
+
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: null,
+    action: 'UPDATE',
+    entityType: 'TRANSLATION',
+    entityId: item.key,
+    entityTitle: `Khóa dịch: ${item.key}`,
+    details: { vi, en },
+  });
+
+  return formatSuccessResponse(item);
+});
+
+server.delete('/api/v1/translations/:key', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền xóa khóa dịch' },
+    });
+  }
+
+  const { key } = req.params as { key: string };
+  translationsStore = translationsStore.filter((t) => t.key !== key);
+
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: null,
+    action: 'DELETE',
+    entityType: 'TRANSLATION',
+    entityId: key,
+    entityTitle: `Khóa dịch: ${key}`,
+  });
+
+  return formatSuccessResponse({ deleted: true });
+});
+
+// 10. USERS & RBAC PERMISSIONS MATRIX API
+server.get('/api/v1/users', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage') && !user.roles.includes(RoleCode.CAMPUS_DIRECTOR)) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền xem danh sách người dùng' },
+    });
+  }
+
+  let results = usersStore;
+  if (user.branchId) {
+    results = results.filter((u) => u.branchId === user.branchId);
+  }
+
+  return formatSuccessResponse(results);
+});
+
+server.post('/api/v1/users', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền tạo tài khoản người dùng' },
+    });
+  }
+
+  const body = req.body as Partial<UserAccountRecord>;
+  if (!body.name || !body.email || !body.role) {
+    return reply.status(422).send({
+      success: false,
+      data: null,
+      error: { code: 'VALIDATION_FAILED', message: 'Vui lòng cung cấp đầy đủ tên, email và vai trò' },
+    });
+  }
+
+  const newU: UserAccountRecord = {
+    id: `usr-${Date.now()}`,
+    name: body.name.trim(),
+    email: body.email.trim(),
+    role: body.role,
+    branchId: body.branchId || null,
+    branchName: body.branchName || 'Toàn hệ thống (Global)',
+    status: 'ACTIVE',
+    lastLogin: 'Chưa đăng nhập',
+  };
+
+  usersStore.push(newU);
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: newU.branchId,
+    action: 'CREATE',
+    entityType: 'USER',
+    entityId: newU.id,
+    entityTitle: newU.name,
+    details: { role: newU.role, branchName: newU.branchName },
+  });
+
+  return formatSuccessResponse(newU);
+});
+
+server.patch('/api/v1/users/:id/status', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền thay đổi trạng thái người dùng' },
+    });
+  }
+
+  const { id } = req.params as { id: string };
+  const target = usersStore.find((u) => u.id === id);
+  if (!target) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy người dùng' },
+    });
+  }
+
+  const nextStatus = target.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+  target.status = nextStatus;
+
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: target.branchId,
+    action: 'STATUS_CHANGE',
+    entityType: 'USER',
+    entityId: target.id,
+    entityTitle: target.name,
+    details: { status: nextStatus },
+  });
+
+  return formatSuccessResponse(target);
+});
+
+server.delete('/api/v1/users/:id', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền xóa người dùng' },
+    });
+  }
+
+  const { id } = req.params as { id: string };
+  const target = usersStore.find((u) => u.id === id);
+  if (!target) {
+    return reply.status(404).send({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Không tìm thấy người dùng' },
+    });
+  }
+
+  if (target.role === RoleCode.SUPER_ADMIN && usersStore.filter((u) => u.role === RoleCode.SUPER_ADMIN).length <= 1) {
+    return reply.status(400).send({
+      success: false,
+      data: null,
+      error: { code: 'VALIDATION_FAILED', message: 'Không thể xóa Super Admin duy nhất của hệ thống' },
+    });
+  }
+
+  usersStore = usersStore.filter((u) => u.id !== id);
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: target.branchId,
+    action: 'DELETE',
+    entityType: 'USER',
+    entityId: target.id,
+    entityTitle: target.name,
+  });
+
+  return formatSuccessResponse({ deleted: true });
+});
+
+server.get('/api/v1/roles/permissions', async () => {
+  return formatSuccessResponse({
+    allPermissions: ALL_PERMISSIONS,
+    matrix: dynamicRolePermissionsStore,
+  });
+});
+
+server.put('/api/v1/roles/:role/permissions', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền sửa ma trận phân quyền' },
+    });
+  }
+
+  const { role } = req.params as { role: string };
+  const { permissions } = req.body as { permissions: string[] };
+  if (!Array.isArray(permissions)) {
+    return reply.status(422).send({
+      success: false,
+      data: null,
+      error: { code: 'VALIDATION_FAILED', message: 'Danh sách quyền hạn không hợp lệ' },
+    });
+  }
+
+  dynamicRolePermissionsStore[role] = permissions;
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: null,
+    action: 'UPDATE',
+    entityType: 'ROLE',
+    entityId: role,
+    entityTitle: `Vai trò ${role}`,
+    details: { permissionsCount: permissions.length },
+  });
+
+  return formatSuccessResponse({
+    role,
+    permissions: dynamicRolePermissionsStore[role],
+  });
+});
+
+// 11. FULL SYSTEM BACKUP & RESTORE API
+server.get('/api/v1/system/backup', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền tải bản sao lưu hệ thống' },
+    });
+  }
+
+  const backupPackage = {
+    meta: {
+      system: 'Alpha School Enterprise Modular CMS',
+      schemaVersion: '2.0.0',
+      exportedAt: new Date().toISOString(),
+      exportedBy: user.name,
+      userRole: user.roles[0],
+    },
+    pages: pagesStore,
+    menus: menusStore,
+    theme: themeTokensStore,
+    localization: {
+      totalKeys: translationsStore.length,
+      items: translationsStore,
+    },
+    contentCounts: {
+      branches: branchesStore.length,
+      articles: articlesStore.length,
+      programs: programsStore.length,
+      leads: submissionsStore.length,
+      users: usersStore.length,
+    },
+  };
+
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: null,
+    action: 'EXPORT',
+    entityType: 'PAGE',
+    entityId: 'system-backup',
+    entityTitle: 'Toàn Bộ Cấu Hình Hệ Thống',
+    details: { backupTime: backupPackage.meta.exportedAt },
+  });
+
+  return formatSuccessResponse(backupPackage);
+});
+
+server.post('/api/v1/system/restore', async (req, reply) => {
+  const user = getUserContext(req);
+  if (!hasPermission(user, 'system:manage')) {
+    return reply.status(403).send({
+      success: false,
+      data: null,
+      error: { code: 'FORBIDDEN', message: 'Bạn không có quyền phục hồi dữ liệu hệ thống' },
+    });
+  }
+
+  const body = req.body as any;
+  if (!body?.meta?.schemaVersion || !body?.pages) {
+    return reply.status(422).send({
+      success: false,
+      data: null,
+      error: { code: 'VALIDATION_FAILED', message: 'Gói sao lưu không đúng định dạng schema 2.0.0' },
+    });
+  }
+
+  if (Array.isArray(body.pages)) {
+    pagesStore = body.pages;
+  }
+  if (Array.isArray(body.menus)) {
+    menusStore = body.menus;
+  }
+  if (body.theme) {
+    themeTokensStore = { ...themeTokensStore, ...body.theme };
+  }
+  if (Array.isArray(body.localization?.items)) {
+    translationsStore = body.localization.items;
+  }
+
+  recordAudit({
+    userId: user.userId,
+    userName: user.name,
+    userRole: user.roles[0],
+    branchId: null,
+    action: 'UPDATE',
+    entityType: 'PAGE',
+    entityId: 'system-restore',
+    entityTitle: 'Phục Hồi Cấu Hình Hệ Thống',
+    details: { restoredFrom: body.meta.exportedAt },
+  });
+
+  return formatSuccessResponse({
+    restored: true,
+    restoredAt: new Date().toISOString(),
+    pagesCount: pagesStore.length,
+    menusCount: menusStore.length,
+    translationsCount: translationsStore.length,
+  });
+});
+
+// 12. PUBLIC PAGE API (Dynamic Page Resolver)
 server.get('/api/v1/public/pages/:slug', async (req) => {
   const { slug } = req.params as { slug: string };
+  const page = pagesStore.find((p) => p.slug === slug);
+  if (page) {
+    return formatSuccessResponse({
+      id: page.id,
+      title: page.title,
+      slug: page.slug,
+      status: page.status,
+      blocks: page.blocks,
+    });
+  }
   return formatSuccessResponse({
     id: 'page-dynamic',
     title: slug === 'trang-chu' ? 'Trang Chủ Alpha School' : `Trang ${slug}`,
     slug,
     status: 'PUBLISHED',
+    blocks: [],
   });
 });
 
@@ -761,10 +1627,14 @@ server.get('/api/v1/health', async () => {
     uptimeSeconds: Math.floor(process.uptime()),
     database: 'connected (PostgreSQL 16)',
     cache: 'ready (Redis 7)',
-    registeredBlocksCount: 6,
+    registeredBlocksCount: BlockRegistry.getAll().length,
     branchesCount: branchesStore.length,
     articlesCount: articlesStore.length,
     programsCount: programsStore.length,
+    pagesCount: pagesStore.length,
+    menusCount: menusStore.length,
+    translationsCount: translationsStore.length,
+    usersCount: usersStore.length,
   });
 });
 

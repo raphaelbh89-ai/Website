@@ -302,10 +302,66 @@ const mockHomePageData: Page = {
       ],
     },
     {
+      id: 'sec-gallery',
+      pageId: 'page-home',
+      name: 'Thư viện hình ảnh hoạt động',
+      sortOrder: 7,
+      isVisible: true,
+      settings: {
+        layout: { width: 'full_width' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-gallery',
+          type: 'gallery',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: {
+            badge: 'KHOẢNH KHẮC ALPHA',
+            title: 'Thư Viện Hình Ảnh & Đời Sống Học Đường',
+            subtitle: 'Ghi lại những hành trình học tập, trải nghiệm và trưởng thành đầy tự hào của các thế hệ học sinh.',
+            columns: '4',
+            categories: ['Tất cả', 'Hoạt động ngoại khóa', 'Cơ sở vật chất', 'Học thuật & STEM', 'Lễ hội & Tốt nghiệp'],
+            images: [
+              {
+                id: 'gal-1',
+                title: 'Giờ Học STEM & Lập Trình Robot VEX',
+                category: 'Học thuật & STEM',
+                imageUrl: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800&auto=format&fit=crop',
+                caption: 'Học sinh cấp 2 hào hứng nghiên cứu mô hình robot phục vụ dự án khoa học quốc tế.',
+              },
+              {
+                id: 'gal-2',
+                title: 'Hồ Bơi Bốn Mùa Chuẩn Olympic',
+                category: 'Cơ sở vật chất',
+                imageUrl: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?q=80&w=800&auto=format&fit=crop',
+                caption: 'Khu liên hợp thể thao dưới nước với hệ thống lọc nước ozone hiện đại.',
+              },
+              {
+                id: 'gal-3',
+                title: 'Giải Bóng Đá Giao Hữu Alpha Cup',
+                category: 'Hoạt động ngoại khóa',
+                imageUrl: 'https://images.unsplash.com/photo-1526232761682-d26e03ac148e?q=80&w=800&auto=format&fit=crop',
+                caption: 'Rèn luyện thể lực và tinh thần đồng đội qua các giải thi đấu thể thao thường niên.',
+              },
+              {
+                id: 'gal-4',
+                title: 'Lễ Tốt Nghiệp Tú Tài Quốc Tế A-Level',
+                category: 'Lễ hội & Tốt nghiệp',
+                imageUrl: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?q=80&w=800&auto=format&fit=crop',
+                caption: 'Khoảnh khắc rạng rỡ của tân cử nhân Alpha School trước thềm du học thế giới.',
+              },
+            ],
+          },
+        },
+      ],
+    },
+    {
       id: 'sec-testimonials',
       pageId: 'page-home',
       name: 'Ý kiến phụ huynh & Cựu học sinh',
-      sortOrder: 7,
+      sortOrder: 8,
       isVisible: true,
       settings: {
         layout: { width: 'container' as any },
@@ -357,7 +413,7 @@ const mockHomePageData: Page = {
       id: 'sec-faq',
       pageId: 'page-home',
       name: 'Giải đáp thắc mắc thường gặp',
-      sortOrder: 8,
+      sortOrder: 9,
       isVisible: true,
       settings: {
         layout: { width: 'container' as any },
@@ -398,7 +454,7 @@ const mockHomePageData: Page = {
       id: 'sec-cta',
       pageId: 'page-home',
       name: 'Banner kêu gọi tuyển sinh',
-      sortOrder: 9,
+      sortOrder: 10,
       isVisible: true,
       settings: {
         layout: { width: 'full_width' as any },
@@ -427,10 +483,69 @@ const mockHomePageData: Page = {
       ],
     },
     {
+      id: 'sec-contact-box',
+      pageId: 'page-home',
+      name: 'Khối liên hệ trực tiếp các cơ sở',
+      sortOrder: 11,
+      isVisible: true,
+      settings: {
+        layout: { width: 'container' as any },
+      },
+      blocks: [
+        {
+          id: 'blk-contact-box',
+          type: 'contact_box',
+          version: 1,
+          sortOrder: 1,
+          isActive: true,
+          config: {
+            badge: 'LIÊN HỆ TRỰC TIẾP',
+            title: 'Hệ Thống Cơ Sở & Kênh Tư Vấn Tuyển Sinh',
+            subtitle: 'Quý Phụ huynh có thể ghé thăm trực tiếp các cơ sở hoặc liên hệ ban tuyển sinh để được hỗ trợ chu đáo nhất.',
+            centralHotline: '1900 8888',
+            centralEmail: 'tuyensinh@school.edu.vn',
+            layout: 'grid_3_cols',
+            branches: [
+              {
+                id: 'cb-1',
+                branchName: 'Alpha School - Cơ sở Biên Hòa',
+                address: 'Số 123 Đường Nguyễn Ái Quốc, TP. Biên Hòa, Tỉnh Đồng Nai',
+                phone: '0251 123 4567',
+                email: 'bienhoa@school.edu.vn',
+                workingHours: 'Thứ 2 - Thứ 7: 07:30 - 17:30',
+                mapEmbedUrl: 'https://maps.google.com/?q=Bien+Hoa',
+                isPrimary: true,
+              },
+              {
+                id: 'cb-2',
+                branchName: 'Alpha School - Cơ sở TP. Thủ Đức',
+                address: 'Khu đô thị Sala, TP. Thủ Đức, TP. Hồ Chí Minh',
+                phone: '028 987 6543',
+                email: 'thuduc@school.edu.vn',
+                workingHours: 'Thứ 2 - Thứ 7: 07:30 - 17:30',
+                mapEmbedUrl: 'https://maps.google.com/?q=Sala+Thu+Duc',
+                isPrimary: false,
+              },
+              {
+                id: 'cb-3',
+                branchName: 'Alpha School - Cơ sở Bình Dương',
+                address: 'Đại lộ Bình Dương, TP. Thủ Dầu Một, Tỉnh Bình Dương',
+                phone: '0274 333 8888',
+                email: 'binhduong@school.edu.vn',
+                workingHours: 'Thứ 2 - Thứ 7: 07:30 - 17:30',
+                mapEmbedUrl: 'https://maps.google.com/?q=Binh+Duong',
+                isPrimary: false,
+              },
+            ],
+          },
+        },
+      ],
+    },
+    {
       id: 'sec-form-contact',
       pageId: 'page-home',
       name: 'Biểu mẫu tư vấn tuyển sinh',
-      sortOrder: 10,
+      sortOrder: 12,
       isVisible: true,
       settings: {
         layout: { width: 'container' as any },
@@ -453,6 +568,7 @@ const mockHomePageData: Page = {
       ],
     },
   ],
+
 };
 
 export default function HomePage() {

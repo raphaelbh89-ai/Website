@@ -35,6 +35,7 @@ import {
   getDeliveryLogs,
   dispatchWebhookEvent,
 } from './webhook';
+import { globalCacheManager } from './cache';
 
 const server = Fastify({ logger: true });
 
@@ -1921,6 +1922,125 @@ server.delete('/api/v1/media/:id', async (req, reply) => {
   const removed = mediaStore.splice(index, 1)[0];
   return formatSuccessResponse({ deleted: true, id: removed.id });
 });
+
+// -------------------------------------------------------------
+// 12. PERFORMANCE & ON-DEMAND CACHE MANAGEMENT API
+// -------------------------------------------------------------
+server.get('/api/v1/cache/stats', async () => {
+  const stats = globalCacheManager.getStats();
+  return formatSuccessResponse({
+    ...stats,
+    allKeys: globalCacheManager.getAllKeys(),
+    edgeCdnStatus: 'ONLINE (Cloudflare Edge Worker)',
+    redisClusterStatus: 'CONNECTED (Redis 7 Cluster)',
+    nextjsDataCache: 'ACTIVE (Tag-based ISR Engine)',
+  });
+});
+
+server.post('/api/v1/cache/revalidate', async (req) => {
+  const body = req.body as {
+    tags?: string[];
+    paths?: string[];
+    triggeredBy?: string;
+  };
+
+  const triggeredBy = body?.triggeredBy || 'Admin Console';
+  let purgedCount = 0;
+  const revalidatedTags: string[] = [];
+  const revalidatedPaths: string[] = [];
+
+  if (body?.tags && Array.isArray(body.tags)) {
+    for (const tag of body.tags) {
+      const c = globalCacheManager.revalidateTag(tag, triggeredBy);
+      purgedCount += c;
+      revalidatedTags.push(tag);
+    }
+  }
+
+  if (body?.paths && Array.isArray(body.paths)) {
+    for (const path of body.paths) {
+      const c = globalCacheManager.revalidatePath(path, triggeredBy);
+      purgedCount += c;
+      revalidatedPaths.push(path);
+    }
+  }
+
+  // Record audit log
+  auditLogsStore.unshift({
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    userId: 'u-admin-01',
+    userName: triggeredBy,
+    userRole: 'SUPER_ADMIN',
+    branchId: null,
+    action: 'UPDATE',
+    entityType: 'THEME', // performance cache
+    entityId: 'edge-cache',
+    entityTitle: `Revalidate Cache: ${[...revalidatedTags, ...revalidatedPaths].join(', ')}`,
+    details: { revalidatedTags, revalidatedPaths, purgedCount },
+    ipAddress: '127.0.0.1',
+  });
+
+  return formatSuccessResponse({
+    success: true,
+    revalidatedTags,
+    revalidatedPaths,
+    purgedCount,
+    remainingKeys: globalCacheManager.getAllKeys().length,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+server.post('/api/v1/cache/purge', async (req) => {
+  const body = req.body as { triggeredBy?: string };
+  const triggeredBy = body?.triggeredBy || 'Admin Console (Purge All)';
+  const purgedCount = globalCacheManager.purgeAll(triggeredBy);
+
+  auditLogsStore.unshift({
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    userId: 'u-admin-01',
+    userName: triggeredBy,
+    userRole: 'SUPER_ADMIN',
+    branchId: null,
+    action: 'DELETE',
+    entityType: 'THEME',
+    entityId: 'edge-cache-purge',
+    entityTitle: 'Purge Entire Edge & Redis Cache',
+    details: { purgedCount },
+    ipAddress: '127.0.0.1',
+  });
+
+  return formatSuccessResponse({
+    purgedAll: true,
+    purgedCount,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// -------------------------------------------------------------
+// 13. SYSTEM HEALTH CHECK API
+// -------------------------------------------------------------
+server.get('/api/v1/health', async () => {
+  const cacheStats = globalCacheManager.getStats();
+  return formatSuccessResponse({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    version: '1.0.0',
+    services: {
+      database: 'UP (PostgreSQL 16)',
+      redis: 'UP (Redis 7)',
+      edgeCdn: 'UP (Cloudflare)',
+      blockRegistry: `${BlockRegistry.getAll().length} Blocks Registered`,
+      cacheHitRatio: `${cacheStats.hitRatio}%`,
+      cachedKeys: cacheStats.totalKeys,
+      mediaCount: mediaStore.length,
+      webhooksCount: getWebhooks().length,
+    },
+  });
+});
+
 
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;

@@ -9,8 +9,10 @@ import { TestimonialSliderBlockDefinition } from './testimonial_slider';
 import { FaqAccordionBlockDefinition } from './faq_accordion';
 import { StatisticsBlockDefinition } from './statistics';
 import { CtaBannerBlockDefinition } from './cta_banner';
+import { GalleryBlockDefinition } from './gallery';
+import { ContactBoxBlockDefinition } from './contact_box';
 
-// Tự động đăng ký 10 Block chuẩn vào BlockRegistry theo Open/Closed Principle
+// Tự động đăng ký 12 Block chuẩn vào BlockRegistry theo Open/Closed Principle
 BlockRegistry.register(HeroBannerBlockDefinition);
 BlockRegistry.register(ProgramListBlockDefinition);
 BlockRegistry.register(PartnerSliderBlockDefinition);
@@ -21,6 +23,8 @@ BlockRegistry.register(TestimonialSliderBlockDefinition);
 BlockRegistry.register(FaqAccordionBlockDefinition);
 BlockRegistry.register(StatisticsBlockDefinition);
 BlockRegistry.register(CtaBannerBlockDefinition);
+BlockRegistry.register(GalleryBlockDefinition);
+BlockRegistry.register(ContactBoxBlockDefinition);
 
 export * from './hero_banner';
 export * from './program_list';
@@ -32,4 +36,5 @@ export * from './testimonial_slider';
 export * from './faq_accordion';
 export * from './statistics';
 export * from './cta_banner';
-
+export * from './gallery';
+export * from './contact_box';

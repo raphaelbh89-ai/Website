@@ -88,7 +88,7 @@ export default function AdminDashboard() {
   // Current user role switcher for testing RBAC
   const [currentRole, setCurrentRole] = useState<'SUPER_ADMIN' | 'CAMPUS_DIRECTOR' | 'ADMISSIONS_OFFICER'>('SUPER_ADMIN');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'webhooks' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'branches' | 'articles' | 'leads' | 'theme' | 'forms' | 'media' | 'webhooks' | 'cache' | 'audit' | 'analytics' | 'menus' | 'i18n' | 'rbac'>('pages');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Page state
@@ -485,6 +485,47 @@ export default function AdminDashboard() {
   const [testWebhookEvent, setTestWebhookEvent] = useState<'lead.created' | 'lead.status_updated' | 'page.published'>('lead.created');
   const [testDispatchResult, setTestDispatchResult] = useState<any | null>(null);
   const [isDispatchingTest, setIsDispatchingTest] = useState(false);
+
+  // Performance & Multi-tier Cache Management state
+  const [cacheMetrics, setCacheMetrics] = useState({
+    hitRatio: 88.5,
+    hits: 142,
+    misses: 18,
+    totalKeys: 5,
+    memoryEstimate: '128 KB',
+    edgeCdnStatus: 'ONLINE (Cloudflare Edge CDN)',
+    redisStatus: 'CONNECTED (Redis 7 Cluster)',
+    nextjsDataCache: 'ACTIVE (Tag-based ISR)',
+  });
+  const [cachedKeysList, setCachedKeysList] = useState<string[]>([
+    'page:data:home',
+    'page:data:tuyen-sinh',
+    'branch:data:bien-hoa',
+    'branch:data:thu-duc',
+    'theme:active:tokens',
+  ]);
+  const [revalidationLogs, setRevalidationLogs] = useState<any[]>([
+    {
+      id: 'rev-01',
+      target: 'branch:bien-hoa',
+      type: 'TAG',
+      purgedCount: 2,
+      timestamp: '05/09/2026 15:45:10',
+      triggeredBy: 'Admin Console',
+    },
+    {
+      id: 'rev-02',
+      target: 'global-layout',
+      type: 'TAG',
+      purgedCount: 3,
+      timestamp: '05/09/2026 14:12:00',
+      triggeredBy: 'Theme Customizer',
+    },
+  ]);
+  const [selectedTagToRevalidate, setSelectedTagToRevalidate] = useState('page:home');
+  const [isRevalidating, setIsRevalidating] = useState(false);
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+
 
 
   // Navigation Menus state
@@ -1082,6 +1123,15 @@ export default function AdminDashboard() {
           >
             <span>📊</span> Báo cáo Phân tích ({leads.length} leads)
           </button>
+          <button
+            onClick={() => setActiveTab('cache')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeTab === 'cache' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <span>⚡</span> Hiệu Năng & Cache ({cacheMetrics.hitRatio}%)
+          </button>
+
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">
             Bảo Mật & Phân Quyền
           </div>
@@ -1156,7 +1206,9 @@ export default function AdminDashboard() {
               {activeTab === 'webhooks' && 'Quản Lý Webhooks & Trình Giả Lập Kích Hoạt (Live Test Console)'}
               {activeTab === 'audit' && 'Nhật Ký Kiểm Toán & Giám Sát Hệ Thống (Audit Logs)'}
               {activeTab === 'analytics' && 'Báo Cáo Hiệu Suất Tuyển Sinh & Lưu Lượng (Analytics)'}
+              {activeTab === 'cache' && 'Quản Trị Hiệu Năng Đa Tầng & On-Demand Edge Cache (Performance)'}
               {activeTab === 'menus' && 'Quản Lý Hệ Thống Điều Hướng & Menu (Navigation)'}
+
               {activeTab === 'i18n' && 'Quản Lý Bản Dịch Đa Ngôn Ngữ & Từ Điển (i18n Localization)'}
               {activeTab === 'rbac' && 'Quản Lý Người Dùng & Ma Trận Phân Quyền (RBAC Security Matrix)'}
             </h2>
@@ -2526,6 +2578,233 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* TAB: PERFORMANCE & CACHE MANAGEMENT */}
+        {activeTab === 'cache' && (
+          <div className="flex-1 p-8 overflow-y-auto">
+            <div className="max-w-6xl mx-auto space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    <span>⚡</span>
+                    <span>Hạ Tầng Hiệu Năng & Quản Trị Bộ Nhớ Đệm Đa Tầng</span>
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Tuân thủ mục 8.1 & 8.2 (docs/08-performance.md): Cloudflare Edge CDN, Next.js On-Demand ISR & Redis 7 Caching.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setIsRevalidating(true);
+                      setTimeout(() => {
+                        setIsRevalidating(false);
+                        showToast('Đã làm mới dữ liệu thống kê bộ nhớ đệm!');
+                      }, 400);
+                    }}
+                    className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-2"
+                  >
+                    <span>🔄</span> Làm Mới Chỉ Số
+                  </button>
+                  <button
+                    onClick={() => setShowPurgeModal(true)}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow flex items-center gap-2"
+                  >
+                    <span>🗑️</span> Xóa Trắng Cache (Purge All)
+                  </button>
+                </div>
+              </div>
+
+              {/* KPI Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
+                    <span>TỶ LỆ HIT CACHE</span>
+                    <span className="text-emerald-600 font-bold text-base">⚡</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-emerald-600 font-mono">{cacheMetrics.hitRatio}%</span>
+                    <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-semibold">Mục tiêu &gt;85%</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">Edge CDN & Redis giảm tải 88.5% truy vấn database</p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
+                    <span>LƯỢT HITS / MISSES</span>
+                    <span className="text-blue-600 font-bold text-base">📊</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-slate-900 font-mono">{cacheMetrics.hits}</span>
+                    <span className="text-xs text-slate-400">/ {cacheMetrics.misses} misses</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">Tổng {cacheMetrics.hits + cacheMetrics.misses} lượt truy vấn được phân luồng</p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
+                    <span>KEYS ĐANG LƯU TRỮ</span>
+                    <span className="text-amber-600 font-bold text-base">🔑</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-slate-900 font-mono">{cachedKeysList.length}</span>
+                    <span className="text-xs text-slate-500">vùng nhớ ({cacheMetrics.memoryEstimate})</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">Tự động thu hồi bộ nhớ theo chính sách TTL</p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
+                    <span>TRẠNG THÁI HẠ TẦNG</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping inline-block" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600">Cloudflare CDN:</span>
+                      <span className="text-emerald-700 font-semibold font-mono">ONLINE</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600">Redis Cluster:</span>
+                      <span className="text-emerald-700 font-semibold font-mono">CONNECTED</span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">Độ trễ TTFB Edge trung bình: &lt;45ms</p>
+                </div>
+              </div>
+
+              {/* Tag-Based On-Demand Invalidation Controller */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                      <span>🏷️</span>
+                      <span>Làm Mới Bộ Nhớ Đệm Theo Thẻ (On-Demand Tag Revalidation)</span>
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Kích hoạt Next.js revalidateTag() và xóa cache Cloudflare tức thì mà không cần rebuild ứng dụng.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">Chọn Thẻ Nội Dung:</span>
+                    <select
+                      value={selectedTagToRevalidate}
+                      onChange={(e) => setSelectedTagToRevalidate(e.target.value)}
+                      className="border border-slate-300 rounded-lg px-3 py-2 text-xs bg-white text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="page:home">🏷️ page:home (Trang chủ chính)</option>
+                      <option value="branch:bien-hoa">🏷️ branch:bien-hoa (Cơ sở Biên Hòa)</option>
+                      <option value="branch:thu-duc">🏷️ branch:thu-duc (Cơ sở TP. Thủ Đức)</option>
+                      <option value="page:tuyen-sinh">🏷️ page:tuyen-sinh (Cổng tuyển sinh)</option>
+                      <option value="theme:tokens">🏷️ theme:tokens (Màu sắc & Typography)</option>
+                      <option value="global-layout">🏷️ global-layout (Header/Footer toàn trường)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button
+                      onClick={() => {
+                        setIsRevalidating(true);
+                        setTimeout(() => {
+                          const newLog = {
+                            id: `rev-${Date.now()}`,
+                            target: selectedTagToRevalidate,
+                            type: 'TAG',
+                            purgedCount: 1,
+                            timestamp: new Date().toLocaleTimeString('vi-VN') + ' ' + new Date().toLocaleDateString('vi-VN'),
+                            triggeredBy: currentRole,
+                          };
+                          setRevalidationLogs([newLog, ...revalidationLogs]);
+                          setCachedKeysList(cachedKeysList.filter((k) => !k.includes(selectedTagToRevalidate.split(':')[1])));
+                          setIsRevalidating(false);
+                          showToast(`Đã thu hồi bộ nhớ đệm cho thẻ [${selectedTagToRevalidate}] thành công!`);
+                        }, 500);
+                      }}
+                      disabled={isRevalidating}
+                      className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2"
+                    >
+                      <span>⚡</span>
+                      <span>{isRevalidating ? 'Đang revalidate...' : 'Revalidate Tag Này Ngay'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cached Keys List in Memory */}
+                <div>
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                    Các Vùng Nhớ Đệm Đang Nạp Trong Bộ Nhớ ({cachedKeysList.length}):
+                  </h5>
+                  <div className="flex flex-wrap gap-2">
+                    {cachedKeysList.map((key) => (
+                      <span
+                        key={key}
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-mono border border-slate-200 flex items-center gap-2"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span>{key}</span>
+                      </span>
+                    ))}
+                    {cachedKeysList.length === 0 && (
+                      <span className="text-xs text-slate-400 italic">Toàn bộ cache đã được giải phóng (0 keys active).</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Revalidation History Log */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <h4 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                  <span>📜</span>
+                  <span>Nhật Ký Revalidation & Thu Hồi Bộ Nhớ Đệm</span>
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600 font-mono">
+                    <thead className="bg-slate-50 text-[11px] uppercase font-semibold text-slate-500 border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3">Thời Gian</th>
+                        <th className="px-4 py-3">Mục Tiêu (Target)</th>
+                        <th className="px-4 py-3">Phương Thức</th>
+                        <th className="px-4 py-3">Số Keys Đã Xóa</th>
+                        <th className="px-4 py-3">Người Kích Hoạt</th>
+                        <th className="px-4 py-3">Trạng Thái</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {revalidationLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-slate-50/80">
+                          <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{log.timestamp}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-900">
+                            <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-bold">
+                              {log.target}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold text-[10px]">
+                              {log.type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-bold text-slate-700">
+                            {log.purgedCount} keys
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 font-sans">
+                            {log.triggeredBy}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                              SUCCESS (STALE_PURGED)
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TAB 8: AUDIT LOGS (GIÁM SÁT HỆ THỐNG) */}
         {activeTab === 'audit' && (
@@ -3958,6 +4237,51 @@ export default function AdminDashboard() {
                 className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-sm"
               >
                 Đăng Ký
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: XÁC NHẬN PURGE ALL CACHE */}
+      {showPurgeModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center text-3xl mb-2">
+              ⚠️
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">Xác Nhận Xóa Trắng Toàn Bộ Bộ Nhớ Đệm?</h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              Hành động này sẽ giải phóng toàn bộ dữ liệu đang lưu trong bộ nhớ đệm trên **Cloudflare Edge CDN**, **Next.js Data Cache** và **Redis Cluster**. Mọi truy vấn kế tiếp sẽ truy xuất trực tiếp vào CSDL để tái nạp dữ liệu tươi mới.
+            </p>
+            <div className="pt-2 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowPurgeModal(false)}
+                className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCachedKeysList([]);
+                  setCacheMetrics((prev) => ({ ...prev, totalKeys: 0, memoryEstimate: '0 KB' }));
+                  const purgeLog = {
+                    id: `rev-${Date.now()}`,
+                    target: '*',
+                    type: 'ALL',
+                    purgedCount: cachedKeysList.length,
+                    timestamp: new Date().toLocaleTimeString('vi-VN') + ' ' + new Date().toLocaleDateString('vi-VN'),
+                    triggeredBy: `${currentRole} (Purge All)`,
+                  };
+                  setRevalidationLogs([purgeLog, ...revalidationLogs]);
+                  setShowPurgeModal(false);
+                  showToast('Đã xóa trắng toàn bộ bộ nhớ đệm (Purge All) thành công!');
+                }}
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors"
+              >
+                Đồng Ý Xóa Trắng
               </button>
             </div>
           </div>

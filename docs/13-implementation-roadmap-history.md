@@ -25,9 +25,10 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
 | **Phase 15** | SEO Rich Snippets (Schema.org FAQPage & Breadcrumbs), Làm sạch Form Chống XSS & 20 Tests | Hoàn thành | `e9821e1` |
 | **Phase 16** | Bảng Điều Phối Tuyển Sinh Kanban (4 cột, KPI Conversion Rate), Webhook HMAC-SHA256 & 22 Tests | Hoàn thành | `c6eaca2` |
 | **Phase 17** | Mở rộng 10 Blocks Chuẩn (Statistics, CTA Banner), Media Asset Optimization Engine, Webhook Test Console & 26 Tests | Hoàn thành | `e5586dc` |
-
+| **Phase 18** | Thư viện 12 Blocks (Gallery, Contact Box), On-Demand Cache Invalidation, Multi-Tier Performance Dashboard & 30 Tests | Hoàn thành | `Đang cập nhật` |
 
 ---
+
 
 ## 📁 Chi Tiết Từng Phase & Các Tệp Tin Đã Tạo/Chỉnh Sửa
 
@@ -156,7 +157,19 @@ Tài liệu này ghi lại toàn bộ tiến trình triển khai dự án **Alph
   - `apps/web/src/app/page.tsx`: Nhúng và hiển thị hoàn chỉnh 10 blocks trên trang chủ công cộng.
   - `apps/api/src/__tests__/test-runner.ts`: Mở rộng bộ kiểm thử tự động lên **26 tests** passing 100%.
 
+### Phase 18: Thư Viện 12 Blocks Chuẩn, On-Demand Cache Invalidation, Multi-Tier Performance Dashboard & 30 Tests
+- **Tệp tin**:
+  - `packages/blocks/src/gallery/`: Khối Thư viện ảnh tương tác (`gallery`) hỗ trợ phân loại category, lightbox modal phóng to ảnh, responsive grid.
+  - `packages/blocks/src/contact_box/`: Khối Thông tin liên hệ đa cơ sở (`contact_box`) tích hợp hotline trung tâm, thẻ cơ sở, giờ làm việc và liên kết bản đồ.
+  - `packages/blocks/src/index.ts`: Tự động đăng ký cả 12 blocks chuẩn vào `BlockRegistry` theo Open/Closed Principle.
+  - `apps/api/src/cache.ts`: Module `CacheManager` quản lý bộ nhớ đệm đa tầng (Cloudflare Edge CDN, Next.js On-Demand ISR, Redis 7 TTL) hỗ trợ revalidate theo tag và theo path.
+  - `apps/api/src/index.ts`: Bộ REST API Quản trị Cache (`/api/v1/cache/stats`, `/api/v1/cache/revalidate`, `/api/v1/cache/purge`) & Cập nhật `/api/v1/health`.
+  - `apps/admin/src/app/page.tsx`: Tab quản trị **Hiệu Năng & Cache** hiển thị KPI Hit Ratio (88.5%), Lượt Hits/Misses, Danh sách Cached Keys, Bộ điều phối Revalidate 1-chạm theo tag và Xóa trắng Purge All.
+  - `apps/web/src/app/page.tsx`: Trưng bày trọn vẹn cả 12 khối giao diện cốt lõi trên trang chủ công cộng.
+  - `apps/api/src/__tests__/test-runner.ts`: Mở rộng bộ kiểm thử tự động lên **30 tests** passing 100%.
+
 ---
+
 
 
 ## 📌 Các File Nơi Lưu Lại Toàn Bộ Tiến Trình

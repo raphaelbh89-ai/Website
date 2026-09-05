@@ -23,7 +23,7 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 │   ├── admin/         # Next.js 14 App Router: Admin Dashboard, Visual Page Builder, CRM & Theme Customizer
 │   └── api/           # Fastify 4 Backend: REST API, AI Chatbot RAG, Unified Search, CRM & Audit Logs
 ├── packages/
-│   ├── blocks/        # Thư viện 10 block chuẩn (HeroBanner, ProgramList, PartnerSlider, BranchList, NewsList, FormEmbed, TestimonialSlider, FaqAccordion, Statistics, CtaBanner)
+│   ├── blocks/        # Thư viện 12 block chuẩn (HeroBanner, ProgramList, PartnerSlider, BranchList, NewsList, FormEmbed, TestimonialSlider, FaqAccordion, Statistics, CtaBanner, Gallery, ContactBox)
 │   ├── cms/           # BlockRegistry singleton, Schema Resolver, Versioning & Migrations
 │   ├── auth/          # Ma trận phân quyền RBAC (13 permissions) & Kiểm tra phạm vi cơ sở (canAccessBranchResource)
 │   ├── database/      # Drizzle ORM Schema PostgreSQL 16 (35 bảng, UUIDv7, Soft Delete) & Seed Data
@@ -49,7 +49,7 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 - **Rollback 1-chạm (One-Click Rollback)**: Cho phép xem lại chi tiết và khôi phục layout về bất kỳ phiên bản nào trong quá khứ.
 - **Sao lưu cấu hình toàn diện (Site Backup Export)**: Xuất gói cấu hình chuẩn JSON (Blocks layout, theme tokens, menu điều hướng, từ điển i18n).
 
-### 2. Thư Viện 10 Khối Giao Diện Cốt Lõi (Open/Closed Architecture)
+### 2. Thư Viện 12 Khối Giao Diện Cốt Lõi (Open/Closed Architecture)
 1. `hero_banner`: Banner lớn, ảnh nền, overlay opacity, slogan và nút kêu gọi hành động (CTA).
 2. `program_list`: Danh sách chương trình đào tạo chuẩn quốc tế (Mầm non, Tiểu học, Trung học & Tú tài).
 3. `partner_slider`: Băng chuyền đối tác học thuật quốc tế (Cambridge, IB, CIS, Edexcel).
@@ -60,6 +60,8 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 8. `faq_accordion`: Bảng câu hỏi thường gặp tích hợp đóng/mở tương tác giải đáp thắc mắc tuyển sinh.
 9. `statistics`: Con số ấn tượng (100% đỗ ĐH, 15+ năm kinh nghiệm, 50+ giải thưởng quốc tế, 5000+ học sinh xuất sắc, counter & theme đa dạng).
 10. `cta_banner`: Banner kêu gọi hành động tuyển sinh cao cấp (Hotline nóng, đăng ký tham quan, tải cẩm nang, nền gradient & overlay).
+11. `gallery`: Thư viện ảnh tương tác học sinh (Phân loại categories, responsive grid, lightbox phóng to toàn màn hình kèm caption).
+12. `contact_box`: Khối thông tin liên hệ đa cơ sở (Địa chỉ thực tế, giờ làm việc, hotline tư vấn, email tiếp nhận, Google Maps embed).
 
 ### 3. Phân Quyền Đa Cơ Sở & Ma Trận Quyền Lực (RBAC Security Matrix)
 - **4 Vai trò cốt lõi**: `SUPER_ADMIN`, `CAMPUS_DIRECTOR`, `ADMISSIONS_OFFICER`, `CONTENT_EDITOR`.
@@ -92,6 +94,8 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 - **Multi-Language (i18n) API**: `/api/v1/translations`, `/api/v1/translations/:key` (quản trị từ điển song ngữ tập trung).
 - **User Accounts & RBAC Matrix API**: `/api/v1/users`, `/api/v1/users/:id/status`, `/api/v1/roles/permissions` (quản lý phân quyền động).
 - **Media Asset Hub API**: `/api/v1/media`, `/api/v1/media/upload`, `/api/v1/media/presigned-url`, `/api/v1/media/:id` (quản lý tệp tin & ảnh biến thể).
+- **Cache & Performance API**: `/api/v1/cache/stats`, `/api/v1/cache/revalidate`, `/api/v1/cache/purge` (quản trị On-Demand ISR & Edge cache).
+- **System Health API**: `/api/v1/health` (báo cáo trạng thái hoạt động toàn bộ hệ thống).
 - **System Backup & Restore API**: `/api/v1/system/backup`, `/api/v1/system/restore` (sao lưu & phục hồi toàn bộ trang web).
 ### 9. Công Cụ SEO Rich Snippets & Bảo Mật Biểu Mẫu (Form Sanitization)
 - **Schema.org Structured Data**: Tự động sinh mã JSON-LD chuẩn hóa Google Rich Results:
@@ -116,6 +120,11 @@ Hệ thống được tổ chức theo mô hình **Modular Monolith** sử dụn
 - Bộ lọc phân loại tệp tin theo nhóm (`Hình ảnh`, `Tài liệu`, `Video`) và tìm kiếm nhanh.
 - Sao chép 1-chạm URL tối ưu CDN và chèn trực tiếp vào các khối giao diện.
 
+### 12. Quản Trị Hiệu Năng Đa Tầng & On-Demand Tag Cache (Performance & Edge Cache)
+- **Kiến trúc Caching 3 tầng**: Cloudflare Edge CDN (Tầng 1) ➔ Next.js On-Demand ISR (Tầng 2) ➔ Redis 7 TTL Cache (Tầng 3) theo mục 8.1 & 8.2 `docs/08-performance.md`.
+- **On-Demand Tag-based Invalidation**: Thu hồi bộ nhớ đệm 1-chạm từ Admin Dashboard theo các thẻ nghiệp vụ (`page:home`, `branch:bien-hoa`, `theme:tokens`, `global-layout`).
+- **Dashboard Giám Sát Hiệu Năng**: Theo dõi tỷ lệ trúng bộ nhớ đệm (Hit Ratio 88.5%), Lượt Hits/Misses và nút xóa trắng khẩn cấp Purge All.
+
 ---
 
 ## 🚀 Hướng Dẫn Cài Đặt & Chạy Môi Trường Cục Bộ
@@ -133,7 +142,7 @@ pnpm install
 ```bash
 pnpm test
 ```
-*Kết quả: 26/26 tests passing (BlockRegistry 10 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, All 10 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation).*
+*Kết quả: 30/30 tests passing (BlockRegistry 12 blocks, Migrations, Multi-tenant RBAC Scoping, Seed Data integrity, i18n dictionary, UTF-8 BOM CSV Export, Dynamic Permission Matrix, Page Revision Rollback, Site Backup Package, Pages API lifecycle, Navigation Reorder, Bilingual Dictionary API, Super Admin deletion guard, All 12 Registered Block Schemas Validation, End-to-End System Health Contract, Schema.org FAQPage & Breadcrumbs Rich Snippets, Dynamic Form Input Sanitization, Cryptographic Webhook HMAC-SHA256 Dispatcher, Admissions Lead Kanban Pipeline & Conversion Metrics, Media Responsive Image Optimization Variants, Media Asset Lifecycle & Constraints, Webhook Live Test Simulation, Extended 12 Blocks Library Schema, On-demand Tag Cache Invalidation, Cache TTL & Hit Ratio Precision, Cache REST Lifecycle).*
 
 
 ### Bước 3: Kiểm tra tính toàn vẹn kiểu dữ liệu

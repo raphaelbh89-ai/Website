@@ -6,6 +6,10 @@ import {
   defaultStatisticsConfig,
   CtaBannerSchema,
   defaultCtaBannerConfig,
+  GallerySchema,
+  defaultGalleryConfig,
+  ContactBoxSchema,
+  defaultContactBoxConfig,
 } from '@school-cms/blocks';
 import {
   RoleCode,
@@ -47,6 +51,7 @@ import {
   formatFileSize,
   detectMediaCategory,
 } from '@school-cms/media';
+import { CacheManager, globalCacheManager } from '../cache';
 
 async function runTestSuite() {
   console.log('====================================================');
@@ -71,9 +76,9 @@ async function runTestSuite() {
   // 1. BLOCK REGISTRY & OPEN/CLOSED ARCHITECTURE
   console.log('--- 1. Block Registry & Dynamic Blocks ---');
 
-  it('BlockRegistry should have all 10 core blocks registered', () => {
+  it('BlockRegistry should have all 12 core blocks registered', () => {
     const blocks = BlockRegistry.getAll();
-    assert.strictEqual(blocks.length >= 10, true, 'Must have at least 10 core blocks registered');
+    assert.strictEqual(blocks.length >= 12, true, 'Must have at least 12 core blocks registered');
     
     const types = blocks.map(b => b.type);
     assert.ok(types.includes('hero_banner'), 'Must register hero_banner');
@@ -86,6 +91,8 @@ async function runTestSuite() {
     assert.ok(types.includes('faq_accordion'), 'Must register faq_accordion');
     assert.ok(types.includes('statistics'), 'Must register statistics');
     assert.ok(types.includes('cta_banner'), 'Must register cta_banner');
+    assert.ok(types.includes('gallery'), 'Must register gallery');
+    assert.ok(types.includes('contact_box'), 'Must register contact_box');
   });
 
   it('BlockRegistry should resolve config and apply version migrations', () => {
@@ -94,6 +101,7 @@ async function runTestSuite() {
     assert.strictEqual(heroDef?.version, 1);
     assert.ok(heroDef?.defaultConfig.title);
   });
+
 
 
   // 2. RBAC & MULTI-TENANT ACCESS CONTROL
@@ -772,6 +780,165 @@ async function runTestSuite() {
     const signature = generateHmacSignature(serializedPayload, secret);
     assert.strictEqual(verifyHmacSignature(serializedPayload, signature, secret), true);
   });
+
+  // 14. EXTENDED STANDARD BLOCKS LIBRARY (12 BLOCKS)
+  console.log('\n--- 14. Advanced Multi-Media Blocks & Schema Validation (12 Blocks) ---');
+
+  it('BlockRegistry validates schemas and default configs for all 12 registered blocks (including gallery & contact_box)', () => {
+    // 1. Gallery Block definition & schema verification
+    const galleryDef = BlockRegistry.get('gallery');
+    assert.ok(galleryDef, 'Gallery block definition must be registered in BlockRegistry');
+    assert.strictEqual(galleryDef.category, 'media');
+    assert.strictEqual(galleryDef.version, 1);
+
+    const validGalleryConfig = GallerySchema.parse({
+      title: 'Thư Viện Hoạt Động Alpha',
+      columns: '4',
+      categories: ['Tất cả', 'Cơ sở vật chất', 'Hoạt động ngoại khóa'],
+      images: [
+        {
+          id: 'g-1',
+          title: 'Giờ Học STEM',
+          category: 'Hoạt động ngoại khóa',
+          imageUrl: 'https://school.edu.vn/cdn/stem.jpg',
+          caption: 'Học sinh trải nghiệm Robotics',
+        },
+      ],
+    });
+    assert.strictEqual(validGalleryConfig.title, 'Thư Viện Hoạt Động Alpha');
+    assert.strictEqual(validGalleryConfig.images.length, 1);
+    assert.strictEqual(validGalleryConfig.columns, '4');
+
+    // 2. ContactBox Block definition & schema verification
+    const contactDef = BlockRegistry.get('contact_box');
+    assert.ok(contactDef, 'ContactBox block definition must be registered in BlockRegistry');
+    assert.strictEqual(contactDef.category, 'layout');
+    assert.strictEqual(contactDef.version, 1);
+
+    const validContactConfig = ContactBoxSchema.parse({
+      title: 'Hệ Thống Cơ Sở Alpha School',
+      centralHotline: '1900 8888',
+      centralEmail: 'tuyensinh@school.edu.vn',
+      layout: 'grid_3_cols',
+      branches: [
+        {
+          id: 'cb-test',
+          branchName: 'Cơ sở Biên Hòa',
+          address: '123 Nguyễn Ái Quốc',
+          phone: '0251 123 4567',
+          email: 'bienhoa@school.edu.vn',
+          workingHours: 'Thứ 2 - Thứ 7',
+          isPrimary: true,
+        },
+      ],
+    });
+    assert.strictEqual(validContactConfig.centralHotline, '1900 8888');
+    assert.strictEqual(validContactConfig.branches.length, 1);
+    assert.strictEqual(validContactConfig.branches[0].isPrimary, true);
+
+    // 3. Confirm all 12 blocks are actively registered
+    assert.strictEqual(BlockRegistry.getAll().length >= 12, true, 'BlockRegistry must contain at least 12 standard blocks');
+  });
+
+  // 15. ON-DEMAND TAG-BASED CACHE INVALIDATION & MULTI-TIER PERFORMANCE ENGINE
+  console.log('\n--- 15. On-Demand Tag-Based Cache Invalidation & Multi-Tier Performance Engine ---');
+
+  it('CacheManager indexes cache keys by tags and performs on-demand tag revalidation (purging matching entries)', () => {
+    const testCache = new CacheManager();
+
+    // 1. Seed custom keys with tags
+    testCache.set('page:cache:bienhoa', { html: '<div>Bien Hoa Page</div>' }, {
+      ttlSeconds: 3600,
+      tags: ['branch:bien-hoa', 'page:branch', 'layout:global'],
+    });
+
+    testCache.set('page:cache:thuduc', { html: '<div>Thu Duc Page</div>' }, {
+      ttlSeconds: 3600,
+      tags: ['branch:thu-duc', 'page:branch', 'layout:global'],
+    });
+
+    testCache.set('theme:cache:tokens', { color: '#047857' }, {
+      ttlSeconds: 7200,
+      tags: ['theme:tokens', 'layout:global'],
+    });
+
+    assert.strictEqual(testCache.has('page:cache:bienhoa'), true);
+    assert.strictEqual(testCache.has('page:cache:thuduc'), true);
+    assert.strictEqual(testCache.has('theme:cache:tokens'), true);
+
+    // 2. Revalidate by specific tag 'branch:bien-hoa'
+    const purgedBranchCount = testCache.revalidateTag('branch:bien-hoa', 'UnitTest');
+    assert.strictEqual(purgedBranchCount, 2, 'Should purge 2 keys matching branch:bien-hoa (1 seeded + 1 custom)');
+    assert.strictEqual(testCache.has('page:cache:bienhoa'), false, 'bienhoa cache key must be removed');
+    assert.strictEqual(testCache.has('branch:data:bien-hoa'), false, 'seeded bienhoa cache key must be removed');
+    assert.strictEqual(testCache.has('page:cache:thuduc'), true, 'thuduc cache key must remain');
+    assert.strictEqual(testCache.has('theme:cache:tokens'), true, 'theme cache key must remain');
+
+    // 3. Revalidate by common tag 'layout:global'
+    const purgedGlobalCount = testCache.revalidateTag('layout:global', 'UnitTest');
+    assert.ok(purgedGlobalCount >= 2, 'Should purge remaining items with layout:global tag');
+    assert.strictEqual(testCache.has('page:cache:thuduc'), false);
+    assert.strictEqual(testCache.has('theme:cache:tokens'), false);
+
+    // 4. Verify log entry recorded
+    const stats = testCache.getStats();
+    assert.ok(stats.recentLogs.length >= 2);
+    assert.strictEqual(stats.recentLogs[0].target, 'layout:global');
+    assert.strictEqual(stats.recentLogs[0].type, 'TAG');
+  });
+
+  it('CacheManager tracks hits, misses, TTL expiration, and calculates accurate Hit Ratio percentage', () => {
+    const testCache = new CacheManager();
+
+    // 1. Initial hit and miss checks
+    const initialStats = testCache.getStats();
+    const initialHits = initialStats.hits;
+    const initialMisses = initialStats.misses;
+
+    testCache.set('test:key:1', { message: 'hello' }, { ttlSeconds: 100 });
+    const val1 = testCache.get('test:key:1');
+    assert.strictEqual(val1?.message, 'hello');
+    assert.strictEqual(testCache.getStats().hits, initialHits + 1);
+
+    const missingVal = testCache.get('test:key:nonexistent');
+    assert.strictEqual(missingVal, null);
+    assert.strictEqual(testCache.getStats().misses, initialMisses + 1);
+
+    // 2. TTL Expiration simulation
+    testCache.set('test:key:expired', { data: 'stale' }, { ttlSeconds: -10 }); // already expired
+    const expiredVal = testCache.get('test:key:expired');
+    assert.strictEqual(expiredVal, null, 'Expired key must return null');
+    assert.strictEqual(testCache.has('test:key:expired'), false, 'Expired key must be auto cleaned');
+
+    // 3. Hit Ratio calculation precision
+    const stats = testCache.getStats();
+    const expectedRatio = Number(((stats.hits / (stats.hits + stats.misses)) * 100).toFixed(1));
+    assert.strictEqual(stats.hitRatio, expectedRatio);
+    assert.ok(stats.memoryEstimateBytes > 0, 'Memory estimate should be positive');
+  });
+
+  it('Cache & Performance REST API lifecycle satisfies stats reporting, selective tag revalidation, and complete cache purge', () => {
+    // 1. Validate global cache manager initialized
+    const stats = globalCacheManager.getStats();
+    assert.ok(typeof stats.hitRatio === 'number');
+    assert.ok(stats.totalKeys >= 1);
+    assert.ok(globalCacheManager.getAllKeys().length >= 1);
+
+    // 2. Revalidate specific path
+    const purgedPaths = globalCacheManager.revalidatePath('tuyen-sinh', 'TestRunner');
+    assert.ok(typeof purgedPaths === 'number');
+
+    // 3. Purge all cache simulation
+    const totalPurged = globalCacheManager.purgeAll('TestRunner Purge All');
+    assert.ok(typeof totalPurged === 'number');
+    assert.strictEqual(globalCacheManager.getAllKeys().length, 0);
+
+    const finalStats = globalCacheManager.getStats();
+    assert.strictEqual(finalStats.totalKeys, 0);
+    assert.strictEqual(finalStats.recentLogs[0].type, 'ALL');
+    assert.strictEqual(finalStats.recentLogs[0].target, '*');
+  });
+
 
 
   console.log('\n====================================================');
